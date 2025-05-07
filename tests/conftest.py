@@ -127,7 +127,7 @@ def sample_bank_payment():
 def mock_payment_response(successful_response, sample_payment):
     """Mock payment API response."""
     # Convert the Pydantic model to a dict
-    payment_dict = sample_payment.dict(exclude_none=True)
+    payment_dict = sample_payment.model_dump(exclude_none=True)
     # Convert datetime to string if it's not already
     if isinstance(payment_dict.get("created_at"), datetime):
         payment_dict["created_at"] = payment_dict["created_at"].isoformat()
