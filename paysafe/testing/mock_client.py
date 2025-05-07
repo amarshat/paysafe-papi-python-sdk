@@ -20,6 +20,7 @@ from paysafe.exceptions import (
     PaysafeError,
     RateLimitError,
 )
+from paysafe.retry import RetryConfig
 from paysafe.testing.mock_server import MockPaysafeServer, MockResponse
 
 T = TypeVar("T", bound=Callable[..., Any])
