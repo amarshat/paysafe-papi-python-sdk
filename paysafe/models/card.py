@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 from datetime import datetime
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CardType(str, Enum):
@@ -27,12 +27,11 @@ class CardExpiry(BaseModel):
     month: int = Field(..., ge=1, le=12)
     year: int = Field(..., ge=0, le=99)
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+    )
     
-    @validator('year')
+    @field_validator('year')
     def validate_year(cls, v: int) -> int:
         """Validate that the year is in a valid format."""
         # Allow both 2-digit and 4-digit years
@@ -70,15 +69,12 @@ class Card(BaseModel):
     updated_at: Optional[datetime] = None
     payment_token: Optional[str] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
+    model_config = ConfigDict(
+        validate_by_name=True,
+        json_schema_extra={"json_encoders": {datetime: lambda dt: dt.isoformat()}}
+    )
     
-    @validator('card_number')
+    @field_validator('card_number')
     def mask_card_number(cls, v: Optional[str]) -> Optional[str]:
         """
         Mask the card number for security.

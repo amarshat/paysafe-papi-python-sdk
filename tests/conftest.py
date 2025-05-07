@@ -170,7 +170,7 @@ def mock_payment_list_response(successful_response):
 @pytest.fixture
 def mock_customer_response(successful_response, sample_customer):
     """Mock customer API response."""
-    customer_dict = sample_customer.dict(exclude_none=True)
+    customer_dict = sample_customer.model_dump(exclude_none=True)
     return successful_response(customer_dict)
 
 
