@@ -39,7 +39,7 @@ class Client:
     """
 
     DEFAULT_BASE_URL = "https://api.paysafe.com/v1/"
-    SANDBOX_BASE_URL = "https://api.sandbox.paysafe.com/v1/"
+    SANDBOX_BASE_URL = "https://api.test.paysafe.com/v1/"
     
     def __init__(
         self,
