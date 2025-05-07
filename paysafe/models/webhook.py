@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
-from pydantic import BaseModel, AnyHttpUrl, Field
+from pydantic import BaseModel, AnyHttpUrl, ConfigDict, Field
 
 
 class WebhookEvent(str, Enum):
@@ -44,13 +44,10 @@ class Webhook(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
+    model_config = ConfigDict(
+        validate_by_name=True,
+        json_schema_extra={"json_encoders": {datetime: lambda dt: dt.isoformat()}}
+    )
 
 
 class WebhookPayload(BaseModel):
@@ -61,10 +58,7 @@ class WebhookPayload(BaseModel):
     created_at: datetime
     data: Dict[str, Any]
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
+    model_config = ConfigDict(
+        validate_by_name=True,
+        json_schema_extra={"json_encoders": {datetime: lambda dt: dt.isoformat()}}
+    )

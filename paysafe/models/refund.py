@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RefundStatus(str, Enum):
@@ -32,10 +32,7 @@ class Refund(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
+    model_config = ConfigDict(
+        validate_by_name=True,
+        json_schema_extra={"json_encoders": {datetime: lambda dt: dt.isoformat()}}
+    )
