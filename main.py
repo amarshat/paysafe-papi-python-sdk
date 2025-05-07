@@ -27,26 +27,51 @@ app.secret_key = os.environ.get("SESSION_SECRET", "paysafesdk-demo-secret-key")
 
 # Initialize Paysafe client
 PAYSAFE_API_KEY = os.environ.get("PAYSAFE_API_KEY")
+PAYSAFE_CREDENTIALS_FILE = os.environ.get("PAYSAFE_CREDENTIALS_FILE")
 paysafe_client = None
 
+# Try to initialize the client with different credential sources
 if PAYSAFE_API_KEY:
+    logging.info("Initializing Paysafe client with API key from environment variable")
     paysafe_client = paysafe.Client(
         api_key=PAYSAFE_API_KEY,
         environment="sandbox"  # Use 'production' for live environment
     )
+elif PAYSAFE_CREDENTIALS_FILE:
+    logging.info(f"Initializing Paysafe client with credentials file: {PAYSAFE_CREDENTIALS_FILE}")
+    try:
+        paysafe_client = paysafe.Client(
+            credentials_file=PAYSAFE_CREDENTIALS_FILE,
+            environment="sandbox"
+        )
+    except Exception as e:
+        logging.error(f"Error loading credentials file: {str(e)}")
+else:
+    logging.warning("No API key or credentials file provided. "
+                 "Set either PAYSAFE_API_KEY or PAYSAFE_CREDENTIALS_FILE environment variable.")
 
 
 @app.route('/')
 def index():
     """Homepage."""
-    return render_template('index.html', api_key_set=bool(PAYSAFE_API_KEY))
+    credentials_available = bool(paysafe_client)
+    credentials_source = None
+    
+    if PAYSAFE_API_KEY:
+        credentials_source = "API_KEY"
+    elif PAYSAFE_CREDENTIALS_FILE:
+        credentials_source = "CREDENTIALS_FILE"
+    
+    return render_template('index.html', 
+                          credentials_available=credentials_available,
+                          credentials_source=credentials_source)
 
 
 @app.route('/payments')
 def payments():
     """List payments."""
     if not paysafe_client:
-        flash("Paysafe API key not set. Please set the PAYSAFE_API_KEY environment variable.", "error")
+        flash("Paysafe credentials not available. Please set either PAYSAFE_API_KEY or PAYSAFE_CREDENTIALS_FILE environment variable.", "error")
         return redirect(url_for('index'))
     
     try:
@@ -71,7 +96,7 @@ def payments():
 def create_payment():
     """Create a new payment."""
     if not paysafe_client:
-        flash("Paysafe API key not set. Please set the PAYSAFE_API_KEY environment variable.", "error")
+        flash("Paysafe credentials not available. Please set either PAYSAFE_API_KEY or PAYSAFE_CREDENTIALS_FILE environment variable.", "error")
         return redirect(url_for('index'))
     
     if request.method == 'POST':
@@ -104,7 +129,7 @@ def create_payment():
 def payment_detail(payment_id):
     """Show payment details."""
     if not paysafe_client:
-        flash("Paysafe API key not set. Please set the PAYSAFE_API_KEY environment variable.", "error")
+        flash("Paysafe credentials not available. Please set either PAYSAFE_API_KEY or PAYSAFE_CREDENTIALS_FILE environment variable.", "error")
         return redirect(url_for('index'))
     
     try:

@@ -12,6 +12,7 @@ A modern, type-safe Python client for the Paysafe API with comprehensive support
 - 🔒 **Type Safety**: Comprehensive type annotations and Pydantic models for static type checking and IDE autocomplete
 - ⚡ **Async Support**: Built-in asynchronous API client for high-performance applications using modern Python async/await syntax
 - 🛡️ **Robust Error Handling**: Detailed and specific exception classes for proper error handling and debugging
+- 🔐 **Credential Management**: Support for loading credentials from Postman-format JSON files or environment variables
 - 📚 **Comprehensive Documentation**: Thorough documentation with examples for all API operations
 - 🧪 **Extensive Test Coverage**: Unit tests and integration tests for all API resources
 - 🐍 **Modern Python**: Requires Python 3.7+ and follows best practices for Python package development
@@ -30,17 +31,28 @@ pip install paysafe-sdk
 import paysafe
 from paysafe.models.payment import Payment
 
-# Synchronous client
+# Synchronous client with direct API key
 client = paysafe.Client(
     api_key="your_api_key",
     environment="sandbox"  # Use 'production' for live environment
 )
 
-# Asynchronous client
+# Asynchronous client with direct API key
 async_client = paysafe.AsyncClient(
     api_key="your_api_key",
     environment="sandbox"
 )
+
+# Using a credentials file (Postman format)
+client_with_credentials_file = paysafe.Client(
+    credentials_file="path/to/paysafe_credentials.json",
+    environment="sandbox"
+)
+
+# Using environment variable for credentials file path
+# First, set the environment variable:
+# export PAYSAFE_CREDENTIALS_FILE="path/to/paysafe_credentials.json"
+client_with_env_var = paysafe.Client(environment="sandbox")
 ```
 
 ### Create a Payment
@@ -258,6 +270,78 @@ export PAYSAFE_TEST_API_KEY="your_test_api_key"
 pytest --integration
 ```
 
+## Credentials File Support
+
+The SDK supports loading Paysafe API credentials from a JSON file in Postman environment format. This is useful for:
+
+- Separating credentials from code
+- Supporting environment-based configuration
+- Easily switching between different accounts or environments
+
+### Credentials File Format
+
+The credentials file should be in Postman environment format:
+
+```json
+{
+  "id": "paysafe-environment",
+  "name": "Paysafe Environment",
+  "values": [
+    {
+      "key": "public_key",
+      "value": "your_public_key",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "private_key",
+      "value": "your_private_key",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "account_id",
+      "value": "your_account_id",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
+```
+
+### Using a Credentials File
+
+There are three ways to use credentials files:
+
+1. **Direct path in constructor**:
+   ```python
+   client = paysafe.Client(
+       credentials_file="path/to/paysafe_credentials.json",
+       environment="sandbox"
+   )
+   ```
+
+2. **Environment variable**:
+   ```bash
+   export PAYSAFE_CREDENTIALS_FILE="path/to/paysafe_credentials.json"
+   ```
+   ```python
+   client = paysafe.Client(environment="sandbox")
+   ```
+
+3. **Load manually and extract API key**:
+   ```python
+   from paysafe.utils import load_credentials_from_file, get_api_key_from_credentials
+   
+   credentials = load_credentials_from_file("path/to/paysafe_credentials.json")
+   api_key = get_api_key_from_credentials(credentials)
+   
+   client = paysafe.Client(api_key=api_key, environment="sandbox")
+   ```
+
+For a full example, see the [credentials_file_demo.py](examples/credentials_file_demo.py) file.
+
 ## Integration Tests
 
 The integration tests require a valid Paysafe sandbox API key. These tests make real API calls to the Paysafe API, so they are skipped by default.
@@ -273,6 +357,12 @@ To run integration tests:
    ```bash
    pytest --integration
    ```
+
+You can also use a credentials file for integration tests:
+```bash
+export PAYSAFE_CREDENTIALS_FILE="path/to/paysafe_credentials.json"
+pytest --integration
+```
 
 ## License
 
