@@ -44,18 +44,38 @@ class TestAsyncClientRequests:
 
     async def test_request_success(self, api_key):
         """Test successful async API request."""
-        # Instead of mocking the whole client session, let's mock the request method
-        with mock.patch.object(AsyncClient, 'request', 
-                              new=mock.AsyncMock(return_value={"key": "value"})) as mock_request:
-            
+        # Create a mock for ClientSession and ClientResponse
+        mock_response = mock.AsyncMock()
+        mock_response.status = 200
+        mock_response.text = mock.AsyncMock(return_value='{"key": "value"}')
+        mock_response.json = mock.AsyncMock(return_value={"key": "value"})
+        
+        mock_session = mock.AsyncMock()
+        mock_session.request = mock.AsyncMock(return_value=mock_response)
+        mock_session.__aenter__ = mock.AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = mock.AsyncMock()
+        
+        # Create a custom context manager to make sure we're properly handling the async context
+        cm = mock.AsyncMock()
+        cm.__aenter__.return_value = mock_response
+        mock_session.request.return_value = cm
+        
+        # Patch aiohttp.ClientSession to return our mock
+        with mock.patch('aiohttp.ClientSession', return_value=mock_session):
             client = AsyncClient(api_key=api_key)
-            result = await client.get("test_path")
+            # Patch the _handle_error_response method to avoid need for full mocking
+            client._handle_error_response = mock.AsyncMock()
+            
+            result = await client.request("GET", "test_path")
             
             # Verify response
             assert result == {"key": "value"}
             
-            # Verify method was called
-            mock_request.assert_called_once()
+            # Verify that request was made with correct parameters
+            mock_session.request.assert_called_once()
+            call_args = mock_session.request.call_args
+            assert call_args[1]["method"] == "GET"
+            assert "test_path" in call_args[1]["url"]
 
     async def test_get(self, api_key):
         """Test GET request method."""
