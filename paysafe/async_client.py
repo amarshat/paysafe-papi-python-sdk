@@ -26,6 +26,7 @@ from paysafe.exceptions import (
 from paysafe.version import VERSION
 
 logger = logging.getLogger("paysafe")
+payload_logger = logging.getLogger("paysafe.api.payloads")
 
 
 class AsyncClient:
@@ -136,6 +137,12 @@ class AsyncClient:
             json_data = data
             
         try:
+            # Log the request payload
+            payload_logger.debug(f"[ASYNC] REQUEST: {method} {url}")
+            payload_logger.debug(f"[ASYNC] PARAMS: {json.dumps(params, indent=2) if params else None}")
+            payload_logger.debug(f"[ASYNC] HEADERS: {json.dumps({k: v for k, v in request_headers.items() if k != 'Authorization'}, indent=2) if request_headers else None}")
+            payload_logger.debug(f"[ASYNC] DATA: {json.dumps(json_data, indent=2) if json_data else None}")
+            
             async with aiohttp.ClientSession() as session:
                 async with session.request(
                     method=method,
@@ -147,10 +154,16 @@ class AsyncClient:
                 ) as response:
                     http_body = await response.text()
                     
+                    # Log the response payload
+                    payload_logger.debug(f"[ASYNC] RESPONSE STATUS: {response.status}")
+                    payload_logger.debug(f"[ASYNC] RESPONSE HEADERS: {json.dumps(dict(response.headers), indent=2)}")
+                    
                     try:
                         json_body = await response.json() if http_body else {}
+                        payload_logger.debug(f"[ASYNC] RESPONSE BODY: {json.dumps(json_body, indent=2) if http_body else 'No body'}")
                     except ValueError:
                         json_body = {}
+                        payload_logger.debug(f"[ASYNC] RESPONSE BODY (non-JSON): {http_body[:1000]}")
                     
                     if response.status < 200 or response.status >= 300:
                         await self._handle_error_response(response, http_body, json_body)

@@ -5,8 +5,11 @@ Fixtures for testing the Paysafe SDK.
 import json
 import os
 import uuid
+import tempfile
+import logging
 from datetime import datetime
 from unittest import mock
+from pathlib import Path
 
 import pytest
 from requests import Response
@@ -265,3 +268,32 @@ def integration_api_key():
 def integration_client(integration_api_key):
     """Create a real client for integration tests."""
     return Client(api_key=integration_api_key, environment="sandbox")
+
+
+@pytest.fixture(scope="session")
+def payload_log_file(tmpdir_factory):
+    """Create a log file in the pytest tmpdir to record API request/response payloads."""
+    log_dir = tmpdir_factory.mktemp("paysafe_logs")
+    log_file = log_dir.join("api_payloads.log")
+    
+    # Set up logging
+    payload_logger = logging.getLogger("paysafe.api.payloads")
+    payload_logger.setLevel(logging.DEBUG)
+    
+    # Create file handler
+    fh = logging.FileHandler(log_file, mode='w')
+    fh.setLevel(logging.DEBUG)
+    
+    # Create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    
+    # Add handler to logger
+    payload_logger.addHandler(fh)
+    
+    # Log file info
+    payload_logger.info(f"API Payload Log File: {log_file}")
+    payload_logger.info("="*80)
+    
+    # Return the log file path
+    return str(log_file)

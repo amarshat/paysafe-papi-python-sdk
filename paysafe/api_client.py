@@ -27,6 +27,7 @@ from paysafe.exceptions import (
 from paysafe.version import VERSION
 
 logger = logging.getLogger("paysafe")
+payload_logger = logging.getLogger("paysafe.api.payloads")
 
 
 class Client:
@@ -141,6 +142,12 @@ class Client:
             json_data = data
             
         try:
+            # Log the request payload
+            payload_logger.debug(f"REQUEST: {method} {url}")
+            payload_logger.debug(f"PARAMS: {json.dumps(params, indent=2) if params else None}")
+            payload_logger.debug(f"HEADERS: {json.dumps({k: v for k, v in request_headers.items() if k != 'Authorization'}, indent=2) if request_headers else None}")
+            payload_logger.debug(f"DATA: {json.dumps(json_data, indent=2) if json_data else None}")
+            
             response = self.session.request(
                 method=method,
                 url=url,
@@ -149,6 +156,14 @@ class Client:
                 headers=request_headers,
                 timeout=self.timeout,
             )
+            
+            # Log the response payload
+            payload_logger.debug(f"RESPONSE STATUS: {response.status_code}")
+            payload_logger.debug(f"RESPONSE HEADERS: {json.dumps(dict(response.headers), indent=2)}")
+            try:
+                payload_logger.debug(f"RESPONSE BODY: {json.dumps(response.json(), indent=2) if response.text else 'No body'}")
+            except ValueError:
+                payload_logger.debug(f"RESPONSE BODY (non-JSON): {response.text[:1000]}")
             
             return self._handle_response(response)
             
