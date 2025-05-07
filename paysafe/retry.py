@@ -1,67 +1,57 @@
 """
-Retry configuration and logic for the Paysafe Python SDK.
+Retry functionality for the Paysafe SDK.
 
-This module provides configurable retry behavior for API requests,
-with support for customizing retry conditions, backoff strategies, and more.
+This module provides classes and functions to handle retrying failed API requests
+with configurable retry strategies, delays, and conditions.
 """
 
+import enum
 import logging
 import random
 import time
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Set, TypeVar, Union, cast
 
-from paysafe.exceptions import PaysafeError, NetworkError, RateLimitError
+from paysafe.exceptions import (
+    APIError,
+    AuthenticationError,
+    InvalidRequestError,
+    NetworkError,
+    PaysafeError,
+    RateLimitError,
+)
 
+T = TypeVar("T")
 logger = logging.getLogger("paysafe")
 
 
-class RetryStrategy(Enum):
-    """Enum defining different backoff strategies for retries."""
-    
-    # No retry
-    NONE = "none"
-    
-    # Retry with a fixed delay between attempts
-    FIXED = "fixed"
-    
-    # Retry with exponentially increasing delays between attempts
-    EXPONENTIAL = "exponential"
-    
-    # Retry with exponential backoff plus random jitter
-    EXPONENTIAL_JITTER = "exponential_jitter"
+class RetryStrategy(enum.Enum):
+    """Enum for different retry delay strategies."""
+
+    NONE = "none"  # No delay between retries
+    FIXED = "fixed"  # Fixed delay between retries
+    EXPONENTIAL = "exponential"  # Exponential backoff between retries
+    EXPONENTIAL_JITTER = "exponential_jitter"  # Exponential backoff with jitter
 
 
-class RetryCondition(Enum):
-    """Enum defining conditions under which to retry a request."""
-    
-    # Retry on network-related errors (connection issues, timeouts)
-    NETWORK_ERROR = "network_error"
-    
-    # Retry on rate limit errors (HTTP 429)
-    RATE_LIMIT = "rate_limit"
-    
-    # Retry on server errors (HTTP 5xx)
-    SERVER_ERROR = "server_error"
-    
-    # Retry on any error
-    ANY_ERROR = "any_error"
+class RetryCondition(enum.Enum):
+    """Enum for different retry conditions."""
+
+    NETWORK_ERROR = "network_error"  # Retry on network errors
+    RATE_LIMIT = "rate_limit"  # Retry on rate limit errors
+    SERVER_ERROR = "server_error"  # Retry on server errors (5xx)
+    ANY_ERROR = "any_error"  # Retry on any error (except authentication errors)
 
 
 class RetryConfig:
-    """
-    Configuration for retry behavior.
-    
-    This class allows specifying how and when requests should be retried.
-    """
-    
+    """Configuration for retry behavior."""
+
     def __init__(
         self,
         max_retries: int = 3,
         retry_strategy: RetryStrategy = RetryStrategy.EXPONENTIAL_JITTER,
-        retry_conditions: Optional[List[RetryCondition]] = None,
-        initial_delay: float = 0.5,  # in seconds
-        max_delay: float = 8.0,  # in seconds
+        retry_conditions: Optional[Set[RetryCondition]] = None,
+        initial_delay: float = 0.5,
+        max_delay: float = 30.0,
         jitter_factor: float = 0.25,
         retry_codes: Optional[Set[int]] = None,
         backoff_factor: float = 2.0,
@@ -69,122 +59,139 @@ class RetryConfig:
         excluded_endpoints: Optional[Set[str]] = None,
     ):
         """
-        Initialize a new retry configuration.
-        
+        Initialize retry configuration.
+
         Args:
             max_retries: Maximum number of retry attempts.
-            retry_strategy: Strategy to use for retry timing.
-            retry_conditions: List of conditions under which to retry.
-            initial_delay: Initial delay between retries in seconds.
-            max_delay: Maximum delay between retries in seconds.
-            jitter_factor: Amount of randomness to add to delay (0.0-1.0).
+            retry_strategy: Strategy for calculating delay between retries.
+            retry_conditions: Set of conditions that trigger retries.
+            initial_delay: Initial delay in seconds.
+            max_delay: Maximum delay in seconds.
+            jitter_factor: Random jitter factor (0.0 to 1.0) to add to delay.
             retry_codes: Set of HTTP status codes to retry on.
-            backoff_factor: Multiplier for exponential backoff.
-            retry_methods: Set of HTTP methods to retry (e.g., {"GET", "POST"}).
+            backoff_factor: Exponential backoff multiplier.
+            retry_methods: Set of HTTP methods to retry.
             excluded_endpoints: Set of API endpoints to exclude from retries.
         """
         self.max_retries = max_retries
         self.retry_strategy = retry_strategy
         
-        # Default retry conditions if not specified
-        self.retry_conditions = retry_conditions or [
-            RetryCondition.NETWORK_ERROR,
-            RetryCondition.RATE_LIMIT,
-            RetryCondition.SERVER_ERROR,
-        ]
+        # Set default retry conditions if none provided
+        if retry_conditions is None:
+            self.retry_conditions = {
+                RetryCondition.NETWORK_ERROR,
+                RetryCondition.RATE_LIMIT,
+                RetryCondition.SERVER_ERROR,
+            }
+        else:
+            self.retry_conditions = retry_conditions
         
         self.initial_delay = initial_delay
         self.max_delay = max_delay
         self.jitter_factor = jitter_factor
         
-        # Default retry status codes if not specified
-        self.retry_codes = retry_codes or {
-            429,  # Too Many Requests
-            500,  # Internal Server Error
-            502,  # Bad Gateway
-            503,  # Service Unavailable
-            504,  # Gateway Timeout
-        }
+        # Set default retry codes if none provided
+        if retry_codes is None:
+            self.retry_codes = {429, 500, 502, 503, 504}
+        else:
+            self.retry_codes = retry_codes
         
         self.backoff_factor = backoff_factor
         
-        # Default to retrying all HTTP methods except DELETE
-        self.retry_methods = retry_methods or {
-            "GET", "POST", "PUT", "PATCH", "HEAD", "OPTIONS"
-        }
+        # Set default retry methods if none provided
+        if retry_methods is None:
+            self.retry_methods = {"GET", "POST", "PUT", "DELETE", "PATCH"}
+        else:
+            self.retry_methods = retry_methods
         
-        # No excluded endpoints by default
+        # Initialize excluded endpoints
         self.excluded_endpoints = excluded_endpoints or set()
-    
+
     def should_retry(
         self,
         method: str,
         path: str,
         attempt: int,
-        error: Optional[Exception] = None,
+        error: Optional[PaysafeError] = None,
         status_code: Optional[int] = None,
     ) -> bool:
         """
         Determine if a request should be retried.
-        
+
         Args:
-            method: The HTTP method of the request.
-            path: The path/endpoint of the request.
-            attempt: The current attempt number (0-based).
-            error: The exception that occurred, if any.
-            status_code: The HTTP status code received, if any.
-            
+            method: HTTP method of the request.
+            path: API endpoint path.
+            attempt: Current attempt number (0-based).
+            error: The error that occurred, if any.
+            status_code: HTTP status code received, if any.
+
         Returns:
             True if the request should be retried, False otherwise.
         """
-        # Check if we've exceeded the maximum retry count
+        # Check if we've exceeded the maximum retry attempts
         if attempt >= self.max_retries:
+            logger.debug("Max retry attempts (%d) reached", self.max_retries)
             return False
         
-        # Check if the HTTP method should be retried
-        if method.upper() not in self.retry_methods:
+        # Check if the HTTP method is allowed for retries
+        if method not in self.retry_methods:
+            logger.debug("HTTP method %s not configured for retries", method)
             return False
         
         # Check if the endpoint is excluded from retries
         for excluded in self.excluded_endpoints:
-            if excluded in path:
+            if path.startswith(excluded):
+                logger.debug("Endpoint %s is excluded from retries", path)
                 return False
         
-        # Check based on error type
+        # Check for authentication errors, which should never be retried
+        if isinstance(error, AuthenticationError):
+            logger.debug("Authentication errors are never retried")
+            return False
+        
+        # Check if we should retry based on the error type
         if error is not None:
             if RetryCondition.ANY_ERROR in self.retry_conditions:
                 return True
-                
-            if (RetryCondition.NETWORK_ERROR in self.retry_conditions and 
-                isinstance(error, NetworkError)):
+            
+            if (
+                isinstance(error, NetworkError)
+                and RetryCondition.NETWORK_ERROR in self.retry_conditions
+            ):
+                logger.debug("Retrying due to network error: %s", str(error))
                 return True
-                
-            if (RetryCondition.RATE_LIMIT in self.retry_conditions and 
-                isinstance(error, RateLimitError)):
+            
+            if (
+                isinstance(error, RateLimitError)
+                and RetryCondition.RATE_LIMIT in self.retry_conditions
+            ):
+                logger.debug("Retrying due to rate limit error: %s", str(error))
+                return True
+            
+            if (
+                isinstance(error, APIError)
+                and RetryCondition.SERVER_ERROR in self.retry_conditions
+            ):
+                logger.debug("Retrying due to server error: %s", str(error))
                 return True
         
-        # Check based on status code
-        if status_code is not None:
-            if status_code in self.retry_codes:
-                if (RetryCondition.RATE_LIMIT in self.retry_conditions and 
-                    status_code == 429):
-                    return True
-                    
-                if (RetryCondition.SERVER_ERROR in self.retry_conditions and 
-                    500 <= status_code < 600):
-                    return True
+        # Check if we should retry based on the status code
+        if status_code is not None and status_code in self.retry_codes:
+            logger.debug("Retrying due to status code: %d", status_code)
+            return True
         
+        # If we get here, we shouldn't retry
         return False
-    
+
     def get_retry_delay(self, attempt: int) -> float:
         """
         Calculate the delay before the next retry attempt.
-        
+
         Args:
-            attempt: The current attempt number (0-based).
-            
+            attempt: Current attempt number (0-based).
+
         Returns:
-            The delay in seconds before the next retry attempt.
+            The delay in seconds before the next retry.
         """
         if self.retry_strategy == RetryStrategy.NONE:
             return 0
@@ -192,82 +199,89 @@ class RetryConfig:
         if self.retry_strategy == RetryStrategy.FIXED:
             return self.initial_delay
         
-        # For exponential strategies, calculate base delay
+        # Calculate exponential backoff
         delay = self.initial_delay * (self.backoff_factor ** attempt)
         
-        # Cap at max delay
+        # Apply maximum delay cap
         delay = min(delay, self.max_delay)
         
-        # Add jitter if needed
-        if self.retry_strategy == RetryStrategy.EXPONENTIAL_JITTER:
-            jitter = random.uniform(-self.jitter_factor, self.jitter_factor)
+        # Add jitter if configured
+        if self.retry_strategy == RetryStrategy.EXPONENTIAL_JITTER and self.jitter_factor > 0:
+            jitter = random.uniform(0, self.jitter_factor)
             delay = delay * (1 + jitter)
         
-        return max(0, delay)  # Ensure non-negative delay
+        return delay
 
 
-def create_retry_handler(config: RetryConfig) -> Callable:
+def create_retry_handler(
+    config: RetryConfig,
+) -> Callable[[Callable[..., T], str, str, Dict[str, Any]], T]:
     """
-    Create a retry handler function using the given configuration.
-    
+    Create a retry handler function.
+
     Args:
-        config: The retry configuration to use.
-        
+        config: Retry configuration to use.
+
     Returns:
-        A function that handles retrying requests.
+        A function that will handle retrying a request function.
     """
+
     def retry_handler(
-        request_func: Callable,
-        method: str,
-        path: str,
-        *args: Any,
-        **kwargs: Any
-    ) -> Any:
+        request_func: Callable[..., T], method: str, path: str, **kwargs: Any
+    ) -> T:
         """
-        Execute a request with retry logic.
-        
+        Handle retrying a request.
+
         Args:
-            request_func: The function to call to execute the request.
+            request_func: The function to call to make the request.
             method: The HTTP method of the request.
-            path: The path/endpoint of the request.
-            *args: Positional arguments to pass to the request function.
-            **kwargs: Keyword arguments to pass to the request function.
-            
+            path: The API endpoint path.
+            **kwargs: Additional arguments to pass to the request function.
+
         Returns:
-            The response from the request function.
-            
+            The result of the request.
+
         Raises:
-            The last exception encountered if all retries fail.
+            The last error that occurred if all retries fail.
         """
         attempt = 0
         last_error = None
         
         while True:
             try:
-                return request_func(*args, **kwargs)
-            except Exception as e:
-                last_error = e
-                
-                # Extract status code from error if available
-                status_code = getattr(e, "http_status", None)
+                # Attempt the request
+                return request_func(**kwargs)
+            
+            except PaysafeError as error:
+                last_error = error
                 
                 # Check if we should retry
-                if not config.should_retry(method, path, attempt, e, status_code):
+                if not config.should_retry(method, path, attempt, error):
                     raise
                 
-                # Calculate delay
+                # Calculate delay before next retry
                 delay = config.get_retry_delay(attempt)
                 
-                # Log retry attempt
-                logger.warning(
-                    f"Request failed (attempt {attempt+1}/{config.max_retries+1}). "
-                    f"Retrying in {delay:.2f} seconds. Error: {str(e)}"
+                # Log the retry attempt
+                logger.info(
+                    "Request failed with %s. Retrying in %.2f seconds "
+                    "(attempt %d/%d)",
+                    error.__class__.__name__,
+                    delay,
+                    attempt + 1,
+                    config.max_retries,
                 )
                 
                 # Wait before retrying
-                time.sleep(delay)
+                if delay > 0:
+                    time.sleep(delay)
                 
                 # Increment attempt counter
                 attempt += 1
-    
+        
+        # This should never be reached due to the while True loop
+        # and the explicit raise in the exception handler
+        assert last_error is not None  # For type checking
+        raise last_error
+
     return retry_handler

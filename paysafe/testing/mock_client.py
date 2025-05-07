@@ -124,6 +124,7 @@ class MockClient(Client):
         base_url: Optional[str] = None,
         timeout: int = 60,
         max_retries: int = 3,
+        retry_config: Optional[RetryConfig] = None,
         fail_rate: float = 0.0,
         latency: tuple = (0.0, 0.0),
     ):
@@ -136,6 +137,7 @@ class MockClient(Client):
             base_url: API base URL
             timeout: Request timeout in seconds
             max_retries: Maximum number of request retries
+            retry_config: Custom retry configuration
             fail_rate: Probability of random failure (0.0 to 1.0)
             latency: Range of random latency in seconds (min, max)
         """
@@ -145,6 +147,7 @@ class MockClient(Client):
             base_url=base_url,
             timeout=timeout,
             max_retries=max_retries,
+            retry_config=retry_config,
         )
         self.mock_server = MockPaysafeServer(
             api_key=api_key, fail_rate=fail_rate, latency=latency
@@ -157,6 +160,7 @@ class MockClient(Client):
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make a request to the mock Paysafe API.
@@ -167,6 +171,8 @@ class MockClient(Client):
             params: URL parameters to include in the request
             data: JSON data to include in the request body
             headers: Additional HTTP headers to include in the request
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response
@@ -218,6 +224,8 @@ class MockAsyncClient(AsyncClient):
         environment: str = "sandbox",
         base_url: Optional[str] = None,
         timeout: int = 60,
+        max_retries: int = 3,
+        retry_config: Optional[RetryConfig] = None,
         fail_rate: float = 0.0,
         latency: tuple = (0.0, 0.0),
     ):
@@ -229,12 +237,19 @@ class MockAsyncClient(AsyncClient):
             environment: API environment ('sandbox' or 'production')
             base_url: API base URL
             timeout: Request timeout in seconds
+            max_retries: Maximum number of request retries
+            retry_config: Custom retry configuration
             fail_rate: Probability of random failure (0.0 to 1.0)
             latency: Range of random latency in seconds (min, max)
         """
         super().__init__(
-            api_key=api_key, environment=environment, base_url=base_url, timeout=timeout
+            api_key=api_key, 
+            environment=environment, 
+            base_url=base_url, 
+            timeout=timeout,
+            max_retries=max_retries,
         )
+        self.retry_config = retry_config or RetryConfig(max_retries=max_retries)
         self.mock_server = MockPaysafeServer(
             api_key=api_key, fail_rate=fail_rate, latency=latency
         )
@@ -246,6 +261,7 @@ class MockAsyncClient(AsyncClient):
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make an async request to the mock Paysafe API.
@@ -256,6 +272,8 @@ class MockAsyncClient(AsyncClient):
             params: URL parameters to include in the request
             data: JSON data to include in the request body
             headers: Additional HTTP headers to include in the request
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response

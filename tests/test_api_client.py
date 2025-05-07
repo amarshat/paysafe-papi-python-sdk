@@ -130,7 +130,7 @@ class TestClient:
         # Verify response
         assert response == {"id": "customer123", "firstName": "John"}
         mock_request.assert_called_once_with(
-            "GET", "customers/customer123", params=None, headers=None
+            "GET", "customers/customer123", params=None, headers=None, retry_config=None
         )
     
     @mock.patch('paysafe.api_client.Client.request')
@@ -147,7 +147,7 @@ class TestClient:
         # Verify response
         assert response == {"id": "payment123", "status": "COMPLETED"}
         mock_request.assert_called_once_with(
-            "POST", "payments", params=None, data=data, headers=None
+            "POST", "payments", params=None, data=data, headers=None, retry_config=None
         )
     
     @mock.patch('paysafe.api_client.Client.request')
@@ -164,7 +164,7 @@ class TestClient:
         # Verify response
         assert response == {"id": "customer123", "firstName": "John", "lastName": "Doe"}
         mock_request.assert_called_once_with(
-            "PUT", "customers/customer123", params=None, data=data, headers=None
+            "PUT", "customers/customer123", params=None, data=data, headers=None, retry_config=None
         )
     
     @mock.patch('paysafe.api_client.Client.request')
@@ -180,5 +180,5 @@ class TestClient:
         # Verify response
         assert response == {"deleted": True}
         mock_request.assert_called_once_with(
-            "DELETE", "customers/customer123", params=None, headers=None
+            "DELETE", "customers/customer123", params=None, headers=None, retry_config=None
         )
