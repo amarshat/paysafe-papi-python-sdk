@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class CustomerStatus(str, Enum):
@@ -28,10 +28,9 @@ class CustomerBillingDetails(BaseModel):
     zip: Optional[str] = None
     phone: Optional[str] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
+    model_config = ConfigDict(
+        validate_by_name=True
+    )
 
 
 class Customer(BaseModel):
@@ -51,13 +50,10 @@ class Customer(BaseModel):
     ip_address: Optional[str] = None
     metadata: Optional[Dict[str, str]] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
+    model_config = ConfigDict(
+        validate_by_name=True,
+        json_schema_extra={"json_encoders": {datetime: lambda dt: dt.isoformat()}}
+    )
     
     def get_full_name(self) -> str:
         """
