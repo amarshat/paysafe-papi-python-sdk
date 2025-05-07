@@ -4,13 +4,10 @@ API client for the Paysafe Python SDK.
 This module provides the core functionality for making requests to the Paysafe API.
 """
 
-import os
-from .utils import load_credentials_from_file, get_api_key_from_credentials
-
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 from urllib.parse import urljoin
 
 import requests
@@ -24,6 +21,8 @@ from paysafe.exceptions import (
     PaysafeError,
     RateLimitError,
 )
+from paysafe.retry import RetryConfig, RetryStrategy, RetryCondition, create_retry_handler
+from paysafe.utils import load_credentials_from_file, get_api_key_from_credentials
 from paysafe.version import VERSION
 
 logger = logging.getLogger("paysafe")
@@ -49,6 +48,7 @@ class Client:
         timeout: int = 60,
         max_retries: int = 3,
         credentials_file: Optional[str] = None,
+        retry_config: Optional[RetryConfig] = None,
     ):
         """
         Initialize a new Paysafe API client.
@@ -61,6 +61,8 @@ class Client:
             max_retries: Maximum number of request retries.
             credentials_file: Path to a JSON file containing Paysafe credentials (Postman format).
                               If not provided, will check PAYSAFE_CREDENTIALS_FILE environment variable.
+            retry_config: Custom retry configuration. If not provided, default configuration will be used
+                          with max_retries from the parameter above.
         """
         # Get API key from credentials file if not directly provided
         if api_key is None:
@@ -87,6 +89,9 @@ class Client:
         self.timeout = timeout
         self.max_retries = max_retries
         
+        # Set up retry configuration
+        self.retry_config = retry_config or RetryConfig(max_retries=max_retries)
+        
         # Initialize requests session
         self.session = Session()
         self.session.headers.update(self._get_default_headers())
@@ -112,6 +117,7 @@ class Client:
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make a request to the Paysafe API.
@@ -122,6 +128,8 @@ class Client:
             params: URL parameters to include in the request.
             data: JSON data to include in the request body.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
@@ -140,8 +148,12 @@ class Client:
         json_data = None
         if data is not None:
             json_data = data
-            
-        try:
+        
+        # Use the provided retry config or the client's default
+        active_retry_config = retry_config or self.retry_config
+        
+        # Create a function to execute a single request attempt
+        def _execute_request():
             # Log the request payload
             payload_logger.debug(f"REQUEST: {method} {url}")
             payload_logger.debug(f"PARAMS: {json.dumps(params, indent=2) if params else None}")
@@ -166,6 +178,13 @@ class Client:
                 payload_logger.debug(f"RESPONSE BODY (non-JSON): {response.text[:1000]}")
             
             return self._handle_response(response)
+        
+        # Create a retry handler with the active configuration
+        retry_handler = create_retry_handler(active_retry_config)
+        
+        try:
+            # Execute the request with retry logic
+            return retry_handler(_execute_request, method, path)
             
         except requests.exceptions.Timeout as e:
             msg = f"Request timed out after {self.timeout} seconds"
@@ -277,6 +296,7 @@ class Client:
         path: str,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make a GET request to the Paysafe API.
@@ -285,11 +305,13 @@ class Client:
             path: API endpoint path.
             params: URL parameters to include in the request.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
         """
-        return self.request("GET", path, params=params, headers=headers)
+        return self.request("GET", path, params=params, headers=headers, retry_config=retry_config)
 
     def post(
         self,
@@ -297,6 +319,7 @@ class Client:
         data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make a POST request to the Paysafe API.
@@ -306,11 +329,13 @@ class Client:
             data: JSON data to include in the request body.
             params: URL parameters to include in the request.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
         """
-        return self.request("POST", path, params=params, data=data, headers=headers)
+        return self.request("POST", path, params=params, data=data, headers=headers, retry_config=retry_config)
 
     def put(
         self,
@@ -318,6 +343,7 @@ class Client:
         data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make a PUT request to the Paysafe API.
@@ -327,17 +353,20 @@ class Client:
             data: JSON data to include in the request body.
             params: URL parameters to include in the request.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
         """
-        return self.request("PUT", path, params=params, data=data, headers=headers)
+        return self.request("PUT", path, params=params, data=data, headers=headers, retry_config=retry_config)
 
     def delete(
         self,
         path: str,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make a DELETE request to the Paysafe API.
@@ -346,8 +375,10 @@ class Client:
             path: API endpoint path.
             params: URL parameters to include in the request.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
         """
-        return self.request("DELETE", path, params=params, headers=headers)
+        return self.request("DELETE", path, params=params, headers=headers, retry_config=retry_config)
