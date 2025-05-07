@@ -390,11 +390,8 @@ class TestCustomer:
         # Create customer resource
         customer_resource = Customer(client)
         
-        # Since we're using the high-level client methods (get, post, etc.)
-        # we need to mock the client.request method which is called by those methods
-        
         # Test authentication error
-        client.request.side_effect = AuthenticationError(
+        client.get.side_effect = AuthenticationError(
             message="Authentication error: Invalid API key", 
             code="UNAUTHORIZED", 
             http_status=401
@@ -403,8 +400,11 @@ class TestCustomer:
             customer_resource.retrieve("cust_123456789")
         assert "Authentication error" in str(exc_info.value)
         
+        # Clear side effect for next test
+        client.get.side_effect = None
+        
         # Test invalid request error
-        client.request.side_effect = InvalidRequestError(
+        client.get.side_effect = InvalidRequestError(
             message="Invalid customer ID", 
             code="INVALID_REQUEST", 
             http_status=400
@@ -413,8 +413,11 @@ class TestCustomer:
             customer_resource.retrieve("cust_123456789")
         assert "Invalid customer ID" in str(exc_info.value)
         
+        # Clear side effect for next test
+        client.get.side_effect = None
+        
         # Test rate limit error
-        client.request.side_effect = RateLimitError(
+        client.get.side_effect = RateLimitError(
             message="Rate limit exceeded", 
             code="RATE_LIMIT_EXCEEDED", 
             http_status=429
@@ -423,8 +426,11 @@ class TestCustomer:
             customer_resource.retrieve("cust_123456789")
         assert "Rate limit exceeded" in str(exc_info.value)
         
+        # Clear side effect for next test
+        client.get.side_effect = None
+        
         # Test API error
-        client.request.side_effect = APIError(
+        client.get.side_effect = APIError(
             message="Internal server error", 
             code="SERVER_ERROR", 
             http_status=500
