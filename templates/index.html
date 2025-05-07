@@ -1,127 +1,91 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paysafe Python SDK Demo</title>
-    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <style>
-        pre {
-            background-color: var(--bs-dark);
-            border-radius: 6px;
-            padding: 1rem;
-        }
-        .code-sample {
-            margin-bottom: 2rem;
-        }
-        .feature-icon {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            color: var(--bs-info);
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <img src="{{ url_for('static', filename='logo.svg') }}" alt="Paysafe Python SDK" width="30" height="30" class="d-inline-block align-top me-2">
-                Paysafe Python SDK
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="https://github.com/your-username/paysafe-python-sdk" target="_blank">GitHub</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="https://paysafe.com/docs" target="_blank">Paysafe Docs</a>
-                    </li>
-                </ul>
+{% extends "layout.html" %}
+
+{% block title %}Paysafe Python SDK - Home{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="jumbotron bg-dark p-5 mb-4 rounded">
+                <h1 class="display-4">Paysafe Python SDK</h1>
+                <p class="lead">A modern, type-safe Python client for the Paysafe API with comprehensive support for both synchronous and asynchronous operations.</p>
+                
+                {% if not api_key_set %}
+                <div class="alert alert-warning" role="alert">
+                    <strong>No API Key Found</strong> - Set the <code>PAYSAFE_API_KEY</code> environment variable to enable live API calls.
+                </div>
+                {% endif %}
+                
+                <hr class="my-4">
+                <p>This demo showcases the features and capabilities of the Paysafe Python SDK.</p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-primary" href="/documentation" role="button">Documentation</a>
+                    <a class="btn btn-info" href="/examples" role="button">View Examples</a>
+                    <a class="btn btn-success" href="https://github.com/paysafe/paysafe-sdk-python" target="_blank" role="button">GitHub</a>
+                </div>
             </div>
         </div>
-    </nav>
-
-    <header class="bg-dark py-5">
-        <div class="container px-5">
-            <div class="row gx-5 justify-content-center">
-                <div class="col-lg-8">
-                    <div class="text-center my-5">
-                        <h1 class="display-5 fw-bold text-white mb-2">Paysafe Python SDK</h1>
-                        <p class="lead text-white-50 mb-4">A modern, type-safe Python client for the Paysafe API with comprehensive async support.</p>
-                        <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
-                            <a class="btn btn-primary btn-lg px-4 me-sm-3" href="#examples">View Examples</a>
-                            <a class="btn btn-outline-light btn-lg px-4" href="https://pypi.org/project/paysafe-sdk/">Install via PyPI</a>
-                        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Payment Operations</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Create, retrieve, list, capture, and cancel payments with the Paysafe API.</p>
+                    <div class="d-grid gap-2">
+                        <a href="/payments" class="btn btn-secondary">View Payments</a>
+                        <a href="/payment/create" class="btn btn-outline-secondary">Create Payment</a>
                     </div>
                 </div>
             </div>
         </div>
-    </header>
-
-    <section class="py-5" id="features">
-        <div class="container px-5">
-            <h2 class="fw-bold mb-4">Key Features</h2>
-            <div class="row g-4 py-3">
-                <div class="col-md-4">
-                    <div class="d-flex flex-column h-100 bg-dark rounded p-4">
-                        <div class="feature-icon">
-                            <i class="bi bi-check2-circle"></i>
-                        </div>
-                        <h3 class="h5">Type Safety</h3>
-                        <p class="text-white-50">Comprehensive type annotations and Pydantic models for static type checking and IDE autocomplete.</p>
-                    </div>
+        
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Customer Operations</h5>
                 </div>
-                <div class="col-md-4">
-                    <div class="d-flex flex-column h-100 bg-dark rounded p-4">
-                        <div class="feature-icon">
-                            <i class="bi bi-lightning-charge"></i>
-                        </div>
-                        <h3 class="h5">Async Support</h3>
-                        <p class="text-white-50">Built-in asynchronous API client for high-performance applications using modern Python async/await syntax.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="d-flex flex-column h-100 bg-dark rounded p-4">
-                        <div class="feature-icon">
-                            <i class="bi bi-shield-check"></i>
-                        </div>
-                        <h3 class="h5">Robust Error Handling</h3>
-                        <p class="text-white-50">Detailed and specific exception classes for proper error handling and debugging.</p>
+                <div class="card-body">
+                    <p class="card-text">Manage customer profiles with the Paysafe API.</p>
+                    <div class="d-grid gap-2">
+                        <a href="/customers" class="btn btn-secondary">View Customers</a>
+                        <a href="/customer/create" class="btn btn-outline-secondary">Create Customer</a>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Quick Start</h5>
+                </div>
+                <div class="card-body">
+                    <h5>Installation</h5>
+                    <div class="code-block">pip install paysafe-sdk</div>
+                    
+                    <h5>Initialize Client</h5>
+                    <div class="code-block">import paysafe
 
-    <section class="py-5 bg-dark" id="examples">
-        <div class="container px-5">
-            <h2 class="fw-bold text-white mb-4">Usage Examples</h2>
-            
-            <div class="code-sample">
-                <h3 class="h5 text-white">Installation</h3>
-                <pre><code>pip install paysafe-sdk</code></pre>
-            </div>
-
-            <div class="code-sample">
-                <h3 class="h5 text-white">Create Payment (Synchronous)</h3>
-                <pre><code>import paysafe
-from paysafe.models.payment import Payment
-
-# Initialize the client
+# Synchronous client
 client = paysafe.Client(
     api_key="your_api_key",
     environment="sandbox"  # Use 'production' for live environment
 )
 
-# Create a payment
-payment = paysafe.Payment.create(
+# Asynchronous client
+async_client = paysafe.AsyncClient(
+    api_key="your_api_key",
+    environment="sandbox"
+)</div>
+                    
+                    <h5>Create a Payment</h5>
+                    <div class="code-block">payment = paysafe.Payment.create(
     client=client,
     payment_method="card",
     amount=1000,  # Amount in cents
@@ -134,124 +98,10 @@ payment = paysafe.Payment.create(
     },
     merchant_reference_number="order-123",
     description="Test payment"
-)
-
-# Print payment ID and status
-print(f"Payment ID: {payment.id}")
-print(f"Status: {payment.status}")</code></pre>
-            </div>
-
-            <div class="code-sample">
-                <h3 class="h5 text-white">Create Payment (Asynchronous)</h3>
-                <pre><code>import asyncio
-import paysafe
-
-async def create_payment():
-    # Initialize the async client
-    client = paysafe.AsyncClient(
-        api_key="your_api_key",
-        environment="sandbox"
-    )
-
-    # Create a payment asynchronously
-    payment = await paysafe.AsyncPayment.create(
-        client=client,
-        payment_method="card",
-        amount=1000,
-        currency_code="USD",
-        card={
-            "card_number": "4111111111111111",
-            "expiry_month": 12,
-            "expiry_year": 2025,
-            "cvv": "123"
-        },
-        merchant_reference_number="order-123",
-        description="Async test payment"
-    )
-
-    print(f"Payment ID: {payment.id}")
-    print(f"Status: {payment.status}")
-
-# Run the async function
-asyncio.run(create_payment())</code></pre>
-            </div>
-
-            <div class="code-sample">
-                <h3 class="h5 text-white">List and Filter Payments</h3>
-                <pre><code>import paysafe
-from datetime import datetime, timedelta
-
-# Initialize the client
-client = paysafe.Client(
-    api_key="your_api_key",
-    environment="sandbox"
-)
-
-# Get payments from the last 7 days
-one_week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-today = datetime.now().strftime("%Y-%m-%d")
-
-payments = paysafe.Payment.list(
-    client=client,
-    created_from=one_week_ago,
-    created_to=today,
-    status="COMPLETED",
-    limit=10
-)
-
-# Print payment details
-for payment in payments:
-    print(f"Payment ID: {payment.id}")
-    print(f"Amount: {payment.amount / 100} {payment.currency_code}")
-    print(f"Status: {payment.status}")
-    print("---")</code></pre>
-            </div>
-
-            <div class="code-sample">
-                <h3 class="h5 text-white">Error Handling</h3>
-                <pre><code>import paysafe
-from paysafe.exceptions import (
-    AuthenticationError,
-    InvalidRequestError,
-    APIError,
-    NetworkError,
-    RateLimitError,
-    PaysafeError
-)
-
-client = paysafe.Client(
-    api_key="your_api_key",
-    environment="sandbox"
-)
-
-try:
-    # Try to retrieve a non-existent payment
-    payment = paysafe.Payment.retrieve(
-        client=client,
-        payment_id="non_existent_id"
-    )
-except AuthenticationError as e:
-    print(f"Authentication error: {str(e)}")
-except InvalidRequestError as e:
-    print(f"Invalid request error: {str(e)}")
-except APIError as e:
-    print(f"API error: {str(e)}")
-except NetworkError as e:
-    print(f"Network error: {str(e)}")
-except RateLimitError as e:
-    print(f"Rate limit exceeded: {str(e)}")
-except PaysafeError as e:
-    print(f"Other Paysafe error: {str(e)}")</code></pre>
+)</div>
+                </div>
             </div>
         </div>
-    </section>
-
-    <footer class="py-4 bg-dark">
-        <div class="container px-5">
-            <p class="m-0 text-center text-white">Copyright &copy; 2025 Paysafe Python SDK</p>
-        </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    </div>
+</div>
+{% endblock %}
