@@ -19,14 +19,6 @@ from paysafe.models.customer import Customer, CustomerBillingDetails
 from paysafe.models.payment import BankAccountPaymentMethod, CardPaymentMethod, Payment, PaymentStatus
 
 
-# Define a pytest marker for integration tests
-def pytest_configure(config):
-    """Configure pytest."""
-    config.addinivalue_line(
-        "markers", "integration: mark test as an integration test that makes real API calls"
-    )
-
-
 # Skip integration tests by default unless the --integration flag is passed
 def pytest_addoption(parser):
     """Add command-line options to pytest."""
@@ -295,5 +287,34 @@ def payload_log_file(tmpdir_factory):
     payload_logger.info(f"API Payload Log File: {log_file}")
     payload_logger.info("="*80)
     
+    # Print log file location to console
+    print(f"\n\n🔍 API PAYLOAD LOG: {log_file}\n")
+    
     # Return the log file path
     return str(log_file)
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """
+    Add a section at the end of the pytest output to display the log file location.
+    """
+    payload_log = getattr(config, "payload_log_file", None)
+    if payload_log:
+        terminalreporter.write_sep("=", "API Payload Log Information")
+        terminalreporter.write_line(f"📋 API payloads are logged to: {payload_log}")
+        terminalreporter.write_line(f"Use 'cat {payload_log}' to view the contents")
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config):
+    """Configure pytest."""
+    config.addinivalue_line(
+        "markers", "integration: mark test as an integration test that makes real API calls"
+    )
+    
+    # Create a payload log file
+    log_dir = config.cache.makedir("paysafe_logs")
+    log_file = os.path.join(log_dir, "api_payloads.log")
+    
+    # Store the log file path in the config for later use
+    config.payload_log_file = log_file
