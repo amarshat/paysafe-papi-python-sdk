@@ -41,7 +41,7 @@ class Customer:
             PaysafeError: If the API returns an error.
         """
         if isinstance(customer, CustomerModel):
-            customer_data = customer.dict(exclude_none=True, by_alias=True)
+            customer_data = customer.model_dump(exclude_none=True, by_alias=True)
         else:
             customer_data = customer
         
@@ -53,7 +53,7 @@ class Customer:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return CustomerModel.parse_obj(response_data)
+        return CustomerModel.model_validate(response_data)
     
     def retrieve(self, customer_id: str) -> CustomerModel:
         """
@@ -76,7 +76,7 @@ class Customer:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return CustomerModel.parse_obj(response_data)
+        return CustomerModel.model_validate(response_data)
     
     def update(
         self, customer_id: str, customer: Union[CustomerModel, Dict[str, Any]]
@@ -98,7 +98,7 @@ class Customer:
         validate_id(customer_id, "customer_id")
         
         if isinstance(customer, CustomerModel):
-            customer_data = customer.dict(exclude_none=True, by_alias=True)
+            customer_data = customer.model_dump(exclude_none=True, by_alias=True)
         else:
             customer_data = customer
         
@@ -110,7 +110,7 @@ class Customer:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return CustomerModel.parse_obj(response_data)
+        return CustomerModel.model_validate(response_data)
     
     def delete(self, customer_id: str) -> Dict[str, Any]:
         """
@@ -176,4 +176,4 @@ class Customer:
         response_data = transform_keys_to_snake_case(response)
         
         customers_data = response_data.get("customers", [])
-        return [CustomerModel.parse_obj(customer) for customer in customers_data]
+        return [CustomerModel.model_validate(customer) for customer in customers_data]
