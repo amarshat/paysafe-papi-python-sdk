@@ -148,7 +148,7 @@ def payment_detail(payment_id):
 def customers():
     """List customers."""
     if not paysafe_client:
-        flash("Paysafe API key not set. Please set the PAYSAFE_API_KEY environment variable.", "error")
+        flash("Paysafe credentials not available. Please set either PAYSAFE_API_KEY or PAYSAFE_CREDENTIALS_FILE environment variable.", "error")
         return redirect(url_for('index'))
     
     try:
@@ -167,7 +167,7 @@ def customers():
 def create_customer():
     """Create a new customer."""
     if not paysafe_client:
-        flash("Paysafe API key not set. Please set the PAYSAFE_API_KEY environment variable.", "error")
+        flash("Paysafe credentials not available. Please set either PAYSAFE_API_KEY or PAYSAFE_CREDENTIALS_FILE environment variable.", "error")
         return redirect(url_for('index'))
     
     if request.method == 'POST':
