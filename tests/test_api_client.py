@@ -49,23 +49,27 @@ class TestClient:
         assert headers["Accept"] == "application/json"
         assert "User-Agent" in headers
     
-    def test_request_success(self, client):
+    @mock.patch('paysafe.api_client.Client._handle_response')
+    @mock.patch('paysafe.api_client.Session.request')
+    def test_request_success(self, mock_request, mock_handle_response):
         """Test successful API request."""
-        # Mock the session.request method
+        # Set up mocks
         mock_response = mock.MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"id": "payment123", "status": "COMPLETED"}
-        client.session.request.return_value = mock_response
+        mock_request.return_value = mock_response
+        mock_handle_response.return_value = {"id": "payment123", "status": "COMPLETED"}
         
-        # Override client._handle_response to return the json output directly
-        client._handle_response.return_value = {"id": "payment123", "status": "COMPLETED"}
+        # Create client
+        client = Client(api_key="test_key")
         
         # Make request
         response = client.request("GET", "payments/payment123")
         
         # Verify response
         assert response == {"id": "payment123", "status": "COMPLETED"}
-        client.session.request.assert_called_once()
+        mock_request.assert_called_once()
+        mock_handle_response.assert_called_once_with(mock_response)
     
     def test_request_network_error(self, api_key):
         """Test handling of network errors."""
@@ -78,122 +82,103 @@ class TestClient:
             
         assert "Network error" in str(exc_info.value)
     
-    def test_handle_error_response(self, client):
+    def test_handle_error_response(self):
         """Test handling of error responses from the API."""
-        # Create a mock Response object
-        mock_response = mock.MagicMock()
+        client = Client(api_key="test_key")
         
         # Test 400 error
+        mock_response = mock.MagicMock()
         mock_response.status_code = 400
         mock_response.text = json.dumps({"error": {"code": "INVALID_REQUEST", "message": "Invalid request"}})
         mock_response.json.return_value = {"error": {"code": "INVALID_REQUEST", "message": "Invalid request"}}
         
-        # Set up client to raise InvalidRequestError when _handle_error_response is called
-        client._handle_error_response.side_effect = InvalidRequestError(
-            message="Invalid request",
-            code="INVALID_REQUEST",
-            http_status=400
-        )
-        
-        # Test raising error
         with pytest.raises(InvalidRequestError) as exc_info:
             client._handle_response(mock_response)
-            
         assert "Invalid request" in str(exc_info.value)
         
         # Test 401 error
         mock_response.status_code = 401
-        client._handle_error_response.side_effect = AuthenticationError(
-            message="Authentication error",
-            code="UNAUTHORIZED",
-            http_status=401
-        )
-        
         with pytest.raises(AuthenticationError) as exc_info:
             client._handle_response(mock_response)
-            
         assert "Authentication error" in str(exc_info.value)
         
         # Test 429 error
         mock_response.status_code = 429
-        client._handle_error_response.side_effect = RateLimitError(
-            message="Rate limit exceeded",
-            code="RATE_LIMIT_EXCEEDED",
-            http_status=429
-        )
-        
         with pytest.raises(RateLimitError) as exc_info:
             client._handle_response(mock_response)
-            
         assert "Rate limit exceeded" in str(exc_info.value)
         
         # Test 500 error
         mock_response.status_code = 500
-        client._handle_error_response.side_effect = APIError(
-            message="Internal server error",
-            code="SERVER_ERROR",
-            http_status=500
-        )
-        
+        # For the 500 error test, use an empty error response
+        mock_response.json.return_value = {}
+        mock_response.text = "{}"
         with pytest.raises(APIError) as exc_info:
             client._handle_response(mock_response)
-            
-        assert "Internal server error" in str(exc_info.value)
+        assert "Unknown error" in str(exc_info.value)
     
-    def test_get(self, client):
+    @mock.patch('paysafe.api_client.Client.request')
+    def test_get(self, mock_request):
         """Test GET request method."""
         # Set up mock
-        client.request.return_value = {"id": "customer123", "firstName": "John"}
+        mock_request.return_value = {"id": "customer123", "firstName": "John"}
         
-        # Make request
+        # Create client and make request
+        client = Client(api_key="test_key")
         response = client.get("customers/customer123")
         
         # Verify response
         assert response == {"id": "customer123", "firstName": "John"}
-        client.request.assert_called_once_with(
+        mock_request.assert_called_once_with(
             "GET", "customers/customer123", params=None, headers=None
         )
     
-    def test_post(self, client):
+    @mock.patch('paysafe.api_client.Client.request')
+    def test_post(self, mock_request):
         """Test POST request method."""
         # Set up mock
-        client.request.return_value = {"id": "payment123", "status": "COMPLETED"}
+        mock_request.return_value = {"id": "payment123", "status": "COMPLETED"}
         
-        # Make request
+        # Create client and make request
+        client = Client(api_key="test_key")
         data = {"amount": 1000, "currencyCode": "USD"}
         response = client.post("payments", data=data)
         
         # Verify response
         assert response == {"id": "payment123", "status": "COMPLETED"}
-        client.request.assert_called_once_with(
+        mock_request.assert_called_once_with(
             "POST", "payments", params=None, data=data, headers=None
         )
     
-    def test_put(self, client):
+    @mock.patch('paysafe.api_client.Client.request')
+    def test_put(self, mock_request):
         """Test PUT request method."""
         # Set up mock
-        client.request.return_value = {"id": "customer123", "firstName": "John", "lastName": "Doe"}
+        mock_request.return_value = {"id": "customer123", "firstName": "John", "lastName": "Doe"}
         
-        # Make request
+        # Create client and make request
+        client = Client(api_key="test_key")
         data = {"firstName": "John", "lastName": "Doe"}
         response = client.put("customers/customer123", data=data)
         
         # Verify response
         assert response == {"id": "customer123", "firstName": "John", "lastName": "Doe"}
-        client.request.assert_called_once_with(
+        mock_request.assert_called_once_with(
             "PUT", "customers/customer123", params=None, data=data, headers=None
         )
     
-    def test_delete(self, client):
+    @mock.patch('paysafe.api_client.Client.request')
+    def test_delete(self, mock_request):
         """Test DELETE request method."""
         # Set up mock
-        client.request.return_value = {"deleted": True}
+        mock_request.return_value = {"deleted": True}
         
-        # Make request
+        # Create client and make request
+        client = Client(api_key="test_key")
         response = client.delete("customers/customer123")
         
         # Verify response
         assert response == {"deleted": True}
-        client.request.assert_called_once_with(
+        mock_request.assert_called_once_with(
             "DELETE", "customers/customer123", params=None, headers=None
         )
