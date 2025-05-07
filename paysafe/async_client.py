@@ -186,7 +186,7 @@ class AsyncClient:
         
         # Execute the request with retry handling
         return await retry_handler(_make_request, method, path, 
-                                  params=params, data=data, headers=headers)
+                                  **{"params": params, "data": data, "headers": headers})
 
     async def _handle_error_response(
         self,
