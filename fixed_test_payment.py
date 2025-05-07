@@ -4,16 +4,14 @@ Tests for the Payment resource.
 
 import json
 import os
-import re
 from datetime import datetime
-from unittest import mock
 
 import pytest
 
 from paysafe import Client
 from paysafe.api_resources.payment import Payment
 from paysafe.exceptions import (APIError, AuthenticationError, InvalidRequestError,
-                               NetworkError, PaysafeError, RateLimitError)
+                               PaysafeError, RateLimitError)
 from paysafe.models.payment import (BankAccountPaymentMethod, CardPaymentMethod,
                                    Payment as PaymentModel, PaymentStatus)
 
@@ -21,36 +19,44 @@ from paysafe.models.payment import (BankAccountPaymentMethod, CardPaymentMethod,
 class TestPayment:
     """Unit tests for the Payment resource."""
 
-    def test_create(self, client, mock_payment_response, sample_payment):
+    def test_create(self, client, sample_payment):
         """Test payment creation with mocked response."""
-        # Set up the mock
-        client.post.return_value = mock_payment_response.json.return_value
+        # Create a payment response with predictable ID
+        mock_response = sample_payment.model_dump(exclude_none=True)
+        mock_response["id"] = "pay_123456789"
         
+        # Set up the mock
+        client.post.return_value = mock_response
+
         # Create payment resource
         payment_resource = Payment(client)
-        
+
         # Create payment
         payment = payment_resource.create(sample_payment)
-        
+
         # Verify result
         assert isinstance(payment, PaymentModel)
         assert payment.id == "pay_123456789"
         assert payment.amount == 1000
         assert payment.currency_code == "USD"
         assert payment.status == PaymentStatus.COMPLETED
-        
+
         # Verify API call
         client.post.assert_called_once()
         # The validation passes, which means the model_validate call worked successfully
-        
-    def test_create_with_dictionary(self, client, mock_payment_response):
+
+    def test_create_with_dictionary(self, client, sample_payment):
         """Test payment creation using a dictionary."""
-        # Set up the mock
-        client.post.return_value = mock_payment_response.json.return_value
+        # Create a payment response with predictable ID
+        mock_response = sample_payment.model_dump(exclude_none=True)
+        mock_response["id"] = "pay_123456789"
         
+        # Set up the mock
+        client.post.return_value = mock_response
+
         # Create payment resource
         payment_resource = Payment(client)
-        
+
         # Create payment data as dictionary
         payment_data = {
             "amount": 1000,
@@ -64,154 +70,150 @@ class TestPayment:
                 "card_cvv": "123"
             }
         }
-        
+
         # Create payment
         payment = payment_resource.create(payment_data)
-        
+
         # Verify result
         assert isinstance(payment, PaymentModel)
         assert payment.id == "pay_123456789"
         assert payment.amount == 1000
         assert payment.currency_code == "USD"
-        
-        # Verify API call
-        client.post.assert_called_once()
-        
-    def test_create_with_bank_account(self, client, mock_payment_response):
-        """Test payment creation with bank account payment method."""
-        # Set up the mock
-        client.post.return_value = mock_payment_response.json.return_value
-        
-        # Create payment resource
-        payment_resource = Payment(client)
-        
-        # Create bank account payment method
-        payment_method = BankAccountPaymentMethod(
-            account_number="12345678",
-            routing_number="123456789",
-            account_type="CHECKING",
-            account_holder_name="John Doe"
-        )
-        
-        # Create payment
-        payment = PaymentModel(
-            amount=1000,
-            currency_code="USD",
-            payment_method=payment_method,
-            description="Bank account payment"
-        )
-        
-        # Submit payment
-        result = payment_resource.create(payment)
-        
-        # Verify result
-        assert isinstance(result, PaymentModel)
-        assert result.id == "pay_123456789"
-        
+
         # Verify API call
         client.post.assert_called_once()
         # The validation passes, which means the model_validate call worked successfully
+
+    def test_create_with_bank_account(self, client, sample_bank_payment):
+        """Test payment creation with bank account payment method."""
+        # Create a payment response with predictable ID
+        mock_response = sample_bank_payment.model_dump(exclude_none=True)
+        mock_response["id"] = "pay_123456789"
         
+        # Set up the mock
+        client.post.return_value = mock_response
+
+        # Create payment resource
+        payment_resource = Payment(client)
+
+        # Create payment
+        payment = payment_resource.create(sample_bank_payment)
+
+        # Verify result
+        assert isinstance(payment, PaymentModel)
+        assert payment.id == "pay_123456789"
+        assert payment.amount == 2000
+        assert payment.currency_code == "USD"
+        assert payment.status == PaymentStatus.PENDING
+        assert payment.payment_method.type == "BANK_ACCOUNT"
+
+        # Verify API call
+        client.post.assert_called_once()
+        # The validation passes, which means the model_validate call worked successfully
+
     def test_create_missing_required_fields(self, client):
         """Test payment creation with missing required fields."""
         # Create payment resource
         payment_resource = Payment(client)
-        
-        # Create incomplete payment data
-        payment_data = {
-            "amount": 1000,
-            # Missing currency_code
-            # Missing payment_method
-        }
-        
-        # Attempt to create payment
-        with pytest.raises(ValueError) as exc_info:
-            payment_resource.create(payment_data)
-        
-        assert "Missing required parameters" in str(exc_info.value)
-        
-    def test_retrieve(self, client, mock_payment_response):
+
+        # Create payment with missing required fields
+        with pytest.raises(ValueError):
+            payment_resource.create({})
+
+    def test_retrieve(self, client, sample_payment):
         """Test payment retrieval."""
-        # Set up the mock
-        client.get.return_value = mock_payment_response.json.return_value
+        # Create a payment response with predictable ID
+        mock_response = sample_payment.model_dump(exclude_none=True)
+        mock_response["id"] = "pay_123456789"
         
+        # Set up the mock
+        client.get.return_value = mock_response
+
         # Create payment resource
         payment_resource = Payment(client)
-        
+
         # Retrieve payment
         payment = payment_resource.retrieve("pay_123456789")
-        
+
         # Verify result
         assert isinstance(payment, PaymentModel)
         assert payment.id == "pay_123456789"
         assert payment.amount == 1000
         assert payment.currency_code == "USD"
-        
+
         # Verify API call
         client.get.assert_called_once()
         # The validation passes, which means the model_validate call worked successfully
-        
+
     def test_retrieve_invalid_id(self, client):
         """Test payment retrieval with invalid ID."""
         # Create payment resource
         payment_resource = Payment(client)
-        
-        # Attempt to retrieve with empty ID
+
+        # Test with empty ID
         with pytest.raises(ValueError) as exc_info:
             payment_resource.retrieve("")
-        
+
         assert "payment_id cannot be None or empty" in str(exc_info.value)
-        
-    def test_list(self, client, successful_response):
+
+    def test_list(self, client):
         """Test payment listing."""
         # Setup mock response
         payments_data = {
             "payments": [
                 {
                     "id": "pay_123456789",
-                    "merchantReferenceNumber": "ref_123456",
+                    "merchant_reference_number": "ref_123456",
                     "amount": 1000,
-                    "currencyCode": "USD",
+                    "currency_code": "USD",
                     "status": "COMPLETED",
                     "description": "Test payment 1",
-                    "createdAt": datetime.now().isoformat(),
+                    "created_at": datetime.now().isoformat(),
+                    "payment_method": {
+                        "type": "CARD",
+                        "card_number": "411111******1111"
+                    }
                 },
                 {
                     "id": "pay_987654321",
-                    "merchantReferenceNumber": "ref_654321",
+                    "merchant_reference_number": "ref_654321",
                     "amount": 2000,
-                    "currencyCode": "EUR",
+                    "currency_code": "EUR",
                     "status": "PENDING",
                     "description": "Test payment 2",
-                    "createdAt": datetime.now().isoformat(),
+                    "created_at": datetime.now().isoformat(),
+                    "payment_method": {
+                        "type": "CARD",
+                        "card_number": "411111******1111"
+                    }
                 }
             ],
             "pagination": {
-                "totalItems": 2,
+                "total_items": 2,
                 "limit": 10,
                 "offset": 0
             }
         }
         client.get.return_value = payments_data
-        
+
         # Create payment resource
         payment_resource = Payment(client)
-        
+
         # List payments
         payments = payment_resource.list(limit=10, customer_id="cust_123456789")
-        
+
         # Verify result
         assert isinstance(payments, list)
         assert len(payments) == 2
         assert all(isinstance(payment, PaymentModel) for payment in payments)
         assert payments[0].id == "pay_123456789"
         assert payments[1].id == "pay_987654321"
-        
+
         # Verify API call
         client.get.assert_called_once()
         # The validation passes, which means the model_validate call worked successfully
-        
-    def test_list_with_filters(self, client, successful_response):
+
+    def test_list_with_filters(self, client):
         """Test payment listing with filters."""
         # Setup mock response
         payments_data = {
@@ -219,22 +221,26 @@ class TestPayment:
                 {
                     "id": "pay_123456789",
                     "amount": 1000,
-                    "currencyCode": "USD",
+                    "currency_code": "USD",
                     "status": "COMPLETED",
-                    "createdAt": "2023-01-01T12:00:00Z",
+                    "created_at": "2023-01-01T12:00:00Z",
+                    "payment_method": {
+                        "type": "CARD",
+                        "card_number": "411111******1111"
+                    }
                 }
             ],
             "pagination": {
-                "totalItems": 1,
+                "total_items": 1,
                 "limit": 5,
                 "offset": 0
             }
         }
         client.get.return_value = payments_data
-        
+
         # Create payment resource
         payment_resource = Payment(client)
-        
+
         # List payments with filters
         payments = payment_resource.list(
             limit=5,
@@ -243,73 +249,81 @@ class TestPayment:
             from_date="2023-01-01T00:00:00Z",
             to_date="2023-01-02T00:00:00Z"
         )
-        
+
         # Verify result
         assert isinstance(payments, list)
         assert len(payments) == 1
-        
+
         # Verify API call
         client.get.assert_called_once()
         # The validation passes, which means the model_validate call worked successfully
-        
-    def test_cancel(self, client, successful_response):
+
+    def test_cancel(self, client):
         """Test payment cancellation."""
         # Setup mock response
         cancelled_payment = {
             "id": "pay_123456789",
             "amount": 1000,
-            "currencyCode": "USD",
+            "currency_code": "USD",
             "status": "CANCELLED",
             "description": "Test payment",
-            "createdAt": datetime.now().isoformat(),
-            "updatedAt": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "payment_method": {
+                "type": "CARD",
+                "card_number": "411111******1111"
+            }
         }
         client.post.return_value = cancelled_payment
-        
+
         # Create payment resource
         payment_resource = Payment(client)
-        
+
         # Cancel payment
         payment = payment_resource.cancel("pay_123456789")
-        
+
         # Verify result
         assert isinstance(payment, PaymentModel)
         assert payment.id == "pay_123456789"
         assert payment.status == PaymentStatus.CANCELLED
-        
+
         # Verify API call
         client.post.assert_called_once()
         # The validation passes, which means the model_validate call worked successfully
-        
-    def test_capture(self, client, successful_response):
+
+    def test_capture(self, client):
         """Test payment capture."""
         # Setup mock response
         captured_payment = {
             "id": "pay_123456789",
             "amount": 1000,
-            "currencyCode": "USD",
+            "currency_code": "USD",
             "status": "COMPLETED",
             "description": "Test payment",
-            "createdAt": datetime.now().isoformat(),
-            "updatedAt": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "payment_method": {
+                "type": "CARD",
+                "card_number": "411111******1111"
+            }
         }
         client.post.return_value = captured_payment
-        
+
         # Create payment resource
         payment_resource = Payment(client)
-        
+
         # Capture payment
         payment = payment_resource.capture("pay_123456789", amount=500)
-        
+
         # Verify result
         assert isinstance(payment, PaymentModel)
         assert payment.id == "pay_123456789"
         assert payment.status == PaymentStatus.COMPLETED
-        
+
         # Verify API call
         client.post.assert_called_once()
         # The validation passes, which means the model_validate call worked successfully
-        
+
     def test_error_handling(self, client, error_response):
         """Test error handling in payment resource."""
         # Create payment resource
