@@ -62,23 +62,23 @@ class TestClient:
         assert response == {"id": "payment123", "status": "COMPLETED"}
         client.session.request.assert_called_once()
     
-    def test_request_network_error(self, client):
+    def test_request_network_error(self, api_key):
         """Test handling of network errors."""
-        # Setup mock to raise network error
-        client.session.request.side_effect = requests.exceptions.ConnectionError("Connection refused")
+        # Create a real client with a non-existent host to trigger connection error
+        client = Client(api_key=api_key, base_url="https://nonexistent-domain-123456789.com/v1/")
         
         # Test that the error is properly converted
         with pytest.raises(NetworkError):
             client.request("GET", "payments/payment123")
     
-    def test_request_timeout(self, client):
+    def test_request_timeout(self, api_key):
         """Test handling of timeout errors."""
-        # Setup mock to raise timeout error
-        client.session.request.side_effect = requests.exceptions.Timeout("Request timed out")
+        # Create a real client with a very small timeout
+        client = Client(api_key=api_key, timeout=0.001)
         
-        # Test that the error is properly converted
+        # Test that the error is properly converted - point to an unreachable IP to ensure timeout
         with pytest.raises(NetworkError):
-            client.request("GET", "payments/payment123")
+            client.request("GET", "https://10.255.255.1/payments/payment123")
     
     def test_handle_error_response(self, client, mock_response):
         """Test handling of error responses from the API."""

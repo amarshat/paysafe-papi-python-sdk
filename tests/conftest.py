@@ -209,3 +209,15 @@ def mock_customer_list_response(successful_response):
 def mock_customer_delete_response(successful_response):
     """Mock customer delete API response."""
     return successful_response({"deleted": True})
+
+
+@pytest.fixture
+def mock_response():
+    """Generic mock response for API client tests."""
+    response = mock.MagicMock(spec=Response)
+    response.status_code = 200
+    response.ok = True
+    response.json.return_value = {"success": True}
+    response.text = json.dumps({"success": True})
+    response.content = json.dumps({"success": True}).encode("utf-8")
+    return response
