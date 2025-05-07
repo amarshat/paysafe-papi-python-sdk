@@ -57,18 +57,16 @@ class TestCustomer:
             data=mock.ANY  # We don't need to check the exact data here
         )
         
-    def test_create_with_dictionary(self, client, successful_response):
+    def test_create_with_dictionary(self, client, mock_customer_response):
         """Test customer creation using a dictionary."""
-        # Setup mock response
-        customer_data = {
+        # Setup mock response with transformed data (snake_case)
+        client.post.return_value = {
             "id": "cust_123456789",
-            "firstName": "John",
-            "lastName": "Doe",
+            "first_name": "John",
+            "last_name": "Doe",
             "email": "john.doe@example.com",
             "status": "ACTIVE"
         }
-        response = successful_response(customer_data)
-        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
@@ -295,34 +293,33 @@ class TestCustomer:
         assert customers[1].id == "cust_987654321"
         
         # Verify API call
-        client.session.request.assert_called_once()
-        call_args = client.session.request.call_args
-        assert call_args[1]["method"] == "GET"
-        assert "customers" in call_args[1]["url"]
-        assert call_args[1]["params"]["limit"] == 10
-        assert call_args[1]["params"]["email"] == "example.com"
+        client.get.assert_called_once()
         
-    def test_list_with_filters(self, client, successful_response):
+        # Verify that get was called with the correct parameters
+        client.get.assert_called_with(
+            "customers", 
+            params={"limit": 10, "offset": 0, "email": "example.com"}
+        )
+        
+    def test_list_with_filters(self, client, mock_customer_response):
         """Test customer listing with multiple filters."""
-        # Setup mock response
-        customers_data = {
+        # Setup mock response with transformed data (snake_case)
+        client.get.return_value = {
             "customers": [
                 {
                     "id": "cust_123456789",
-                    "firstName": "John",
-                    "lastName": "Doe",
-                    "merchantCustomerId": "merch123",
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "merchant_customer_id": "merch123",
                     "status": "ACTIVE"
                 }
             ],
             "pagination": {
-                "totalItems": 1,
+                "total_items": 1,
                 "limit": 5,
                 "offset": 0
             }
         }
-        response = successful_response(customers_data)
-        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
@@ -340,12 +337,18 @@ class TestCustomer:
         assert len(customers) == 1
         
         # Verify API call
-        client.session.request.assert_called_once()
-        call_args = client.session.request.call_args
-        assert call_args[1]["params"]["limit"] == 5
-        assert call_args[1]["params"]["offset"] == 0
-        assert call_args[1]["params"]["merchantCustomerId"] == "merch123"
-        assert call_args[1]["params"]["status"] == "ACTIVE"
+        client.get.assert_called_once()
+        
+        # Verify that get was called with the correct parameters
+        client.get.assert_called_with(
+            "customers", 
+            params={
+                "limit": 5, 
+                "offset": 0, 
+                "merchantCustomerId": "merch123", 
+                "status": "ACTIVE"
+            }
+        )
         
     def test_utility_methods(self, client):
         """Test utility methods on the Customer model."""
