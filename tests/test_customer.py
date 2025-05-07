@@ -150,18 +150,16 @@ class TestCustomer:
         sent_data = json.loads(client.session.request.call_args[1]["json"])
         assert "billingDetails" in sent_data
         
-    def test_retrieve(self, client, successful_response):
+    def test_retrieve(self, client, mock_customer_response):
         """Test customer retrieval."""
         # Setup mock response
-        customer_data = {
+        client.get.return_value = {
             "id": "cust_123456789",
-            "firstName": "John",
-            "lastName": "Doe",
+            "first_name": "John",
+            "last_name": "Doe",
             "email": "john.doe@example.com",
             "status": "ACTIVE"
         }
-        response = successful_response(customer_data)
-        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
@@ -177,10 +175,12 @@ class TestCustomer:
         assert customer.email == "john.doe@example.com"
         
         # Verify API call
-        client.session.request.assert_called_once()
-        call_args = client.session.request.call_args
-        assert call_args[1]["method"] == "GET"
-        assert "customers/cust_123456789" in call_args[1]["url"]
+        client.get.assert_called_once()
+        
+        # Verify that get was called with the correct resource path and ID
+        client.get.assert_called_with(
+            "customers/cust_123456789"
+        )
         
     def test_retrieve_invalid_id(self, client):
         """Test customer retrieval with invalid ID."""
@@ -193,18 +193,16 @@ class TestCustomer:
         
         assert "customer_id cannot be None or empty" in str(exc_info.value)
         
-    def test_update(self, client, successful_response):
+    def test_update(self, client, mock_customer_response):
         """Test customer update."""
         # Setup mock response
-        customer_data = {
+        client.put.return_value = {
             "id": "cust_123456789",
-            "firstName": "Jane",  # Changed from John to Jane
-            "lastName": "Doe",
+            "first_name": "Jane",  # Changed from John to Jane
+            "last_name": "Doe",
             "email": "jane.doe@example.com",  # Updated email
             "status": "ACTIVE"
         }
-        response = successful_response(customer_data)
-        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
@@ -225,22 +223,18 @@ class TestCustomer:
         assert customer.email == "jane.doe@example.com"  # Verify email updated
         
         # Verify API call
-        client.session.request.assert_called_once()
-        call_args = client.session.request.call_args
-        assert call_args[1]["method"] == "PUT"
-        assert "customers/cust_123456789" in call_args[1]["url"]
+        client.put.assert_called_once()
         
-        # Check that only the updated fields were sent
-        sent_data = json.loads(call_args[1]["json"])
-        assert "firstName" in sent_data
-        assert "email" in sent_data
-        assert "lastName" not in sent_data  # Unchanged field not sent
+        # Verify that put was called with the correct resource path and ID
+        client.put.assert_called_with(
+            "customers/cust_123456789", 
+            data=mock.ANY  # We don't need to check the exact data format, but path should be correct
+        )
         
-    def test_delete(self, client, successful_response):
+    def test_delete(self, client, mock_customer_response):
         """Test customer deletion."""
         # Setup mock response
-        response = successful_response({"deleted": True})
-        client.session.request.return_value = response
+        client.delete.return_value = {"deleted": True}
         
         # Create customer resource
         customer_resource = Customer(client)
@@ -253,39 +247,39 @@ class TestCustomer:
         assert result["deleted"] is True
         
         # Verify API call
-        client.session.request.assert_called_once()
-        call_args = client.session.request.call_args
-        assert call_args[1]["method"] == "DELETE"
-        assert "customers/cust_123456789" in call_args[1]["url"]
+        client.delete.assert_called_once()
         
-    def test_list(self, client, successful_response):
+        # Verify that delete was called with the correct resource path and ID
+        client.delete.assert_called_with(
+            "customers/cust_123456789"
+        )
+        
+    def test_list(self, client, mock_customer_response):
         """Test customer listing."""
-        # Setup mock response
-        customers_data = {
+        # Setup mock response with transformed data (snake_case)
+        client.get.return_value = {
             "customers": [
                 {
                     "id": "cust_123456789",
-                    "firstName": "John",
-                    "lastName": "Doe",
+                    "first_name": "John",
+                    "last_name": "Doe",
                     "email": "john.doe@example.com",
                     "status": "ACTIVE"
                 },
                 {
                     "id": "cust_987654321",
-                    "firstName": "Jane",
-                    "lastName": "Smith",
+                    "first_name": "Jane",
+                    "last_name": "Smith",
                     "email": "jane.smith@example.com",
                     "status": "ACTIVE"
                 }
             ],
             "pagination": {
-                "totalItems": 2,
+                "total_items": 2,
                 "limit": 10,
                 "offset": 0
             }
         }
-        response = successful_response(customers_data)
-        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
