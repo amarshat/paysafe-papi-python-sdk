@@ -7,7 +7,7 @@ This module provides asynchronous functionality for making requests to the Paysa
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import aiohttp
@@ -108,10 +108,11 @@ class AsyncClient:
             PaysafeError: For any other Paysafe-related error.
         """
         url = urljoin(self.base_url, path)
+        
         request_headers = self._get_default_headers()
         if headers:
             request_headers.update(headers)
-        
+            
         json_data = None
         if data is not None:
             json_data = data
@@ -127,6 +128,7 @@ class AsyncClient:
                     timeout=self.timeout,
                 ) as response:
                     http_body = await response.text()
+                    
                     try:
                         json_body = await response.json() if http_body else {}
                     except ValueError:
@@ -180,38 +182,38 @@ class AsyncClient:
         if response.status == 400:
             raise InvalidRequestError(
                 message=error_message,
+                code=error_code,
                 http_status=response.status,
                 http_body=http_body,
                 json_body=json_body,
                 headers=dict(response.headers),
-                code=error_code,
             )
         elif response.status == 401:
             raise AuthenticationError(
                 message="Authentication error: Invalid API key provided",
+                code=error_code,
                 http_status=response.status,
                 http_body=http_body,
                 json_body=json_body,
                 headers=dict(response.headers),
-                code=error_code,
             )
         elif response.status == 429:
             raise RateLimitError(
                 message="Rate limit exceeded",
+                code=error_code,
                 http_status=response.status,
                 http_body=http_body,
                 json_body=json_body,
                 headers=dict(response.headers),
-                code=error_code,
             )
         else:
             raise APIError(
                 message=error_message,
+                code=error_code,
                 http_status=response.status,
                 http_body=http_body,
                 json_body=json_body,
                 headers=dict(response.headers),
-                code=error_code,
             )
 
     async def get(
