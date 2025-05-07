@@ -1,100 +1,193 @@
 """
-Utility functions for the Paysafe Python SDK.
-
-This module provides helper functions used across the SDK.
+Utility functions for the Paysafe SDK.
 """
 
+import json
+import os
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, TypeVar, cast
 
 
-def to_snake_case(camel_str: str) -> str:
+T = TypeVar('T')
+
+
+def load_credentials_from_file(file_path: Optional[str] = None) -> Dict[str, Any]:
     """
-    Convert a camelCase string to snake_case.
+    Load Paysafe credentials from a JSON file.
 
     Args:
-        camel_str: A string in camelCase format.
+        file_path: Path to the JSON credentials file. If not provided,
+                  the function will check the PAYSAFE_CREDENTIALS_FILE environment variable.
 
     Returns:
-        The string converted to snake_case.
+        Dictionary containing the credentials.
+
+    Raises:
+        FileNotFoundError: If the credentials file doesn't exist.
+        ValueError: If the credentials file is invalid JSON or missing required fields.
     """
-    # First, add an underscore before any uppercase letter that follows a lowercase letter
-    # or a digit and isn't at the beginning of the string
-    s1 = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', camel_str)
-    # Then convert the whole string to lowercase
-    return s1.lower()
+    # Check for file path from environment variable if not provided
+    if not file_path:
+        file_path = os.environ.get("PAYSAFE_CREDENTIALS_FILE")
+        if not file_path:
+            raise ValueError(
+                "No credentials file path provided and PAYSAFE_CREDENTIALS_FILE environment variable not set."
+            )
+
+    # Check if file exists
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Credentials file not found: {file_path}")
+
+    # Load JSON file
+    try:
+        with open(file_path, "r") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        raise ValueError(f"Invalid JSON in credentials file: {file_path}")
+
+    # Extract credentials
+    credentials = {}
+    if not data.get("values"):
+        raise ValueError("Missing 'values' key in credentials file")
+
+    # Process the postman environment format
+    for item in data.get("values", []):
+        key = item.get("key")
+        value = item.get("value")
+        if key and value and item.get("enabled", True):
+            credentials[key] = value
+
+    return credentials
 
 
-def to_camel_case(snake_str: str) -> str:
+def get_api_key_from_credentials(credentials: Dict[str, Any]) -> str:
+    """
+    Extract the API key from the credentials dictionary.
+    For Paysafe, the API key is typically the combination of the public_key and private_key.
+
+    Args:
+        credentials: Dictionary containing the credentials.
+
+    Returns:
+        API key string.
+
+    Raises:
+        ValueError: If the required credentials are missing.
+    """
+    private_key = credentials.get("private_key")
+    if not private_key:
+        raise ValueError("Missing 'private_key' in credentials")
+    
+    # For some Paysafe integrations, the private key is sufficient as the API key
+    return private_key
+
+
+def _snake_to_camel(snake_str: str) -> str:
     """
     Convert a snake_case string to camelCase.
 
     Args:
-        snake_str: A string in snake_case format.
+        snake_str: The snake_case string to convert.
 
     Returns:
-        The string converted to camelCase.
+        The converted camelCase string.
     """
     components = snake_str.split('_')
     # We capitalize the first letter of each component except the first one
+    # with the 'title' method and join them together.
     return components[0] + ''.join(x.title() for x in components[1:])
 
 
-def transform_keys_to_snake_case(data: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
+def _camel_to_snake(camel_str: str) -> str:
     """
-    Recursively convert all dictionary keys from camelCase to snake_case.
+    Convert a camelCase string to snake_case.
 
     Args:
-        data: A dictionary or list to transform.
+        camel_str: The camelCase string to convert.
 
     Returns:
-        The transformed dictionary or list.
+        The converted snake_case string.
     """
-    if isinstance(data, list):
-        return [transform_keys_to_snake_case(item) for item in data]
-    elif isinstance(data, dict):
-        return {
-            to_snake_case(key): transform_keys_to_snake_case(value)
-            for key, value in data.items()
-        }
-    else:
-        return data
+    # Add underscore before any uppercase letter followed by a lowercase one
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', camel_str)
+    # Add underscore before any uppercase letter that has a lowercase letter before it
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
-def transform_keys_to_camel_case(data: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
+def transform_keys_to_camel_case(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Recursively convert all dictionary keys from snake_case to camelCase.
+    Transform all dictionary keys from snake_case to camelCase.
 
     Args:
-        data: A dictionary or list to transform.
+        data: The dictionary with snake_case keys.
 
     Returns:
-        The transformed dictionary or list.
+        A new dictionary with camelCase keys and the same values.
     """
-    if isinstance(data, list):
-        return [transform_keys_to_camel_case(item) for item in data]
-    elif isinstance(data, dict):
-        return {
-            to_camel_case(key): transform_keys_to_camel_case(value)
-            for key, value in data.items()
-        }
-    else:
+    if not isinstance(data, dict):
         return data
+        
+    result: Dict[str, Any] = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            value = transform_keys_to_camel_case(value)
+        elif isinstance(value, list):
+            value = [
+                transform_keys_to_camel_case(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        camel_key = _snake_to_camel(key)
+        result[camel_key] = value
+        
+    return result
 
 
-def validate_id(resource_id: str, name: str = "id") -> None:
+def transform_keys_to_snake_case(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Validate that the provided ID is not None or empty.
+    Transform all dictionary keys from camelCase to snake_case.
 
     Args:
-        resource_id: The ID to validate.
-        name: The name of the ID for error messages.
+        data: The dictionary with camelCase keys.
+
+    Returns:
+        A new dictionary with snake_case keys and the same values.
+    """
+    if not isinstance(data, dict):
+        return data
+        
+    result: Dict[str, Any] = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            value = transform_keys_to_snake_case(value)
+        elif isinstance(value, list):
+            value = [
+                transform_keys_to_snake_case(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        snake_key = _camel_to_snake(key)
+        result[snake_key] = value
+        
+    return result
+
+
+def validate_id(id_str: Optional[str]) -> None:
+    """
+    Validate that the ID is a valid ID format for Paysafe.
+
+    Args:
+        id_str: The ID to validate.
 
     Raises:
-        ValueError: If the ID is None or empty.
+        ValueError: If the ID is invalid.
     """
-    if not resource_id:
-        raise ValueError(f"{name} cannot be None or empty")
+    if id_str is None:
+        raise ValueError("ID cannot be None")
+        
+    if not id_str:
+        raise ValueError("ID cannot be empty")
+        
+    if not isinstance(id_str, str):
+        raise ValueError(f"ID must be a string, got {type(id_str)}")
 
 
 def validate_parameters(params: Dict[str, Any], required: List[str]) -> None:
@@ -106,21 +199,11 @@ def validate_parameters(params: Dict[str, Any], required: List[str]) -> None:
         required: List of required parameter names.
 
     Raises:
-        ValueError: If a required parameter is missing.
+        ValueError: If any required parameter is missing.
     """
-    missing = [param for param in required if param not in params or params[param] is None]
-    if missing:
-        raise ValueError(f"Missing required parameters: {', '.join(missing)}")
-
-
-def filter_none_values(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Remove None values from a dictionary.
-
-    Args:
-        data: A dictionary to filter.
-
-    Returns:
-        A new dictionary with None values removed.
-    """
-    return {k: v for k, v in data.items() if v is not None}
+    for param in required:
+        if param not in params:
+            raise ValueError(f"Missing required parameter: {param}")
+            
+        if params[param] is None:
+            raise ValueError(f"Parameter {param} cannot be None")

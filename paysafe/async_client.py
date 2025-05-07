@@ -7,10 +7,13 @@ This module provides asynchronous functionality for making requests to the Paysa
 import asyncio
 import json
 import logging
+import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import aiohttp
+
+from paysafe.utils import load_credentials_from_file, get_api_key_from_credentials
 
 from paysafe.exceptions import (
     APIError,
@@ -38,20 +41,35 @@ class AsyncClient:
     
     def __init__(
         self,
-        api_key: str,
+        api_key: Optional[str] = None,
         environment: str = "production",
         base_url: Optional[str] = None,
         timeout: int = 60,
+        credentials_file: Optional[str] = None,
     ):
         """
         Initialize a new async Paysafe API client.
 
         Args:
-            api_key: Your Paysafe API key.
+            api_key: Your Paysafe API key. If not provided, will look for credentials_file or environment variable.
             environment: The API environment to use ('production' or 'sandbox').
             base_url: Override the default API base URL.
             timeout: Request timeout in seconds.
+            credentials_file: Path to a JSON file containing Paysafe credentials (Postman format).
+                              If not provided, will check PAYSAFE_CREDENTIALS_FILE environment variable.
         """
+        # Get API key from credentials file if not directly provided
+        if api_key is None:
+            try:
+                credentials = load_credentials_from_file(credentials_file)
+                api_key = get_api_key_from_credentials(credentials)
+            except (ValueError, FileNotFoundError) as e:
+                # Check for PAYSAFE_API_KEY environment variable as a fallback
+                api_key = os.environ.get("PAYSAFE_API_KEY")
+                if not api_key:
+                    raise ValueError("API key not provided, not found in credentials file, "
+                                    "and PAYSAFE_API_KEY environment variable not set.") from e
+        
         self.api_key = api_key
         self.environment = environment
         
