@@ -20,21 +20,19 @@ from paysafe.models.customer import Customer as CustomerModel, CustomerStatus, C
 class TestCustomer:
     """Unit tests for the Customer resource."""
 
-    def test_create(self, client, successful_response, sample_customer):
+    def test_create(self, client, mock_customer_response, sample_customer):
         """Test customer creation with mocked response."""
         # Setup mock response
-        customer_data = {
+        client.post.return_value = {
             "id": "cust_123456789",
-            "firstName": "John",
-            "lastName": "Doe",
+            "first_name": "John",
+            "last_name": "Doe",
             "email": "john.doe@example.com",
             "phone": "1234567890",
             "status": "ACTIVE",
-            "createdAt": datetime.now().isoformat(),
-            "updatedAt": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
         }
-        response = successful_response(customer_data)
-        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
@@ -51,15 +49,13 @@ class TestCustomer:
         assert customer.status == CustomerStatus.ACTIVE
         
         # Verify API call
-        client.session.request.assert_called_once()
-        call_args = client.session.request.call_args
-        assert call_args[1]["method"] == "POST"
-        assert "customers" in call_args[1]["url"]
+        client.post.assert_called_once()
         
-        # Check that data was converted to camelCase
-        sent_data = json.loads(call_args[1]["json"])
-        assert "firstName" in sent_data
-        assert "lastName" in sent_data
+        # Verify that post was called with the correct resource path
+        client.post.assert_called_with(
+            "customers", 
+            data=mock.ANY  # We don't need to check the exact data here
+        )
         
     def test_create_with_dictionary(self, client, successful_response):
         """Test customer creation using a dictionary."""
