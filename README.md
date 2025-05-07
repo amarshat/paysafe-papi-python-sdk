@@ -2,11 +2,6 @@
 
 A modern, type-safe Python client for the Paysafe API with comprehensive support for both synchronous and asynchronous operations.
 
-[![PyPI version](https://img.shields.io/pypi/v/paysafe-sdk.svg)](https://pypi.org/project/paysafe-sdk/)
-[![Python versions](https://img.shields.io/pypi/pyversions/paysafe-sdk.svg)](https://pypi.org/project/paysafe-sdk/)
-[![License](https://img.shields.io/pypi/l/paysafe-sdk.svg)](https://pypi.org/project/paysafe-sdk/)
-[![Tests](https://github.com/paysafe/paysafe-sdk-python/workflows/Tests/badge.svg)](https://github.com/paysafe/paysafe-sdk-python/actions)
-
 ## Features
 
 - 🔒 **Type Safety**: Comprehensive type annotations and Pydantic models for static type checking and IDE autocomplete
