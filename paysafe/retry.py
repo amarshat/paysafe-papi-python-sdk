@@ -5,6 +5,7 @@ This module provides classes and functions to handle retrying failed API request
 with configurable retry strategies, delays, and conditions.
 """
 
+import asyncio
 import enum
 import logging
 import random
@@ -285,3 +286,77 @@ def create_retry_handler(
         raise last_error
 
     return retry_handler
+
+
+async def create_async_retry_handler(
+    config: RetryConfig,
+) -> Callable[[Callable[..., Any], str, str, Dict[str, Any]], Any]:
+    """
+    Create an async retry handler function.
+
+    Args:
+        config: Retry configuration to use.
+
+    Returns:
+        A function that will handle retrying an async request function.
+    """
+
+    async def async_retry_handler(
+        request_func: Callable[..., Any], method: str, path: str, **kwargs: Any
+    ) -> Any:
+        """
+        Handle retrying an async request.
+
+        Args:
+            request_func: The async function to call to make the request.
+            method: The HTTP method of the request.
+            path: The API endpoint path.
+            **kwargs: Additional arguments to pass to the request function.
+
+        Returns:
+            The result of the request.
+
+        Raises:
+            The last error that occurred if all retries fail.
+        """
+        attempt = 0
+        last_error = None
+        
+        while True:
+            try:
+                # Attempt the request
+                return await request_func(**kwargs)
+            
+            except PaysafeError as error:
+                last_error = error
+                
+                # Check if we should retry
+                if not config.should_retry(method, path, attempt, error):
+                    raise
+                
+                # Calculate delay before next retry
+                delay = config.get_retry_delay(attempt)
+                
+                # Log the retry attempt
+                logger.info(
+                    "Async request failed with %s. Retrying in %.2f seconds "
+                    "(attempt %d/%d)",
+                    error.__class__.__name__,
+                    delay,
+                    attempt + 1,
+                    config.max_retries,
+                )
+                
+                # Wait before retrying
+                if delay > 0:
+                    await asyncio.sleep(delay)
+                
+                # Increment attempt counter
+                attempt += 1
+        
+        # This should never be reached due to the while True loop
+        # and the explicit raise in the exception handler
+        assert last_error is not None  # For type checking
+        raise last_error
+
+    return async_retry_handler

@@ -14,6 +14,7 @@ from urllib.parse import urljoin
 import aiohttp
 
 from paysafe.utils import load_credentials_from_file, get_api_key_from_credentials
+from paysafe.retry import RetryConfig, create_async_retry_handler
 
 from paysafe.exceptions import (
     APIError,
@@ -47,6 +48,7 @@ class AsyncClient:
         base_url: Optional[str] = None,
         timeout: int = 60,
         credentials_file: Optional[str] = None,
+        retry_config: Optional[RetryConfig] = None,
     ):
         """
         Initialize a new async Paysafe API client.
@@ -58,6 +60,7 @@ class AsyncClient:
             timeout: Request timeout in seconds.
             credentials_file: Path to a JSON file containing Paysafe credentials (Postman format).
                               If not provided, will check PAYSAFE_CREDENTIALS_FILE environment variable.
+            retry_config: Custom retry configuration. If not provided, default configuration will be used.
         """
         # Get API key from credentials file if not directly provided
         if api_key is None:
@@ -82,6 +85,7 @@ class AsyncClient:
             self.base_url = self.DEFAULT_BASE_URL
             
         self.timeout = timeout
+        self.retry_config = retry_config or RetryConfig()
         
     def _get_default_headers(self) -> Dict[str, str]:
         """
