@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PaymentStatus(str, Enum):
@@ -34,10 +34,9 @@ class PaymentAddress(BaseModel):
     country: str = Field(..., min_length=2, max_length=2)
     zip: Optional[str] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
+    model_config = ConfigDict(
+        validate_by_name=True
+    )
 
 
 class PaymentMethod(BaseModel):
@@ -45,10 +44,9 @@ class PaymentMethod(BaseModel):
     
     type: str
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
+    model_config = ConfigDict(
+        validate_by_name=True
+    )
 
 
 class CardPaymentMethod(PaymentMethod):
@@ -62,10 +60,9 @@ class CardPaymentMethod(PaymentMethod):
     card_cvv: Optional[str] = None
     card_type: Optional[str] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
+    model_config = ConfigDict(
+        validate_by_name=True
+    )
 
 
 class BankAccountPaymentMethod(PaymentMethod):
@@ -78,10 +75,9 @@ class BankAccountPaymentMethod(PaymentMethod):
     account_type: Optional[str] = None
     account_holder_name: Optional[str] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
+    model_config = ConfigDict(
+        validate_by_name=True
+    )
 
 
 class Payment(BaseModel):
@@ -101,15 +97,12 @@ class Payment(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
-    class Config:
-        """Pydantic model configuration."""
-        
-        allow_population_by_field_name = True
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
+    model_config = ConfigDict(
+        validate_by_name=True,
+        json_schema_extra={"json_encoders": {datetime: lambda dt: dt.isoformat()}}
+    )
     
-    @validator('currency_code')
+    @field_validator('currency_code')
     def currency_code_uppercase(cls, v: str) -> str:
         """Ensure currency code is uppercase."""
         return v.upper()
