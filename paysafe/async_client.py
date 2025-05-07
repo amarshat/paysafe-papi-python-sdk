@@ -108,6 +108,7 @@ class AsyncClient:
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make an async request to the Paysafe API.
@@ -118,6 +119,8 @@ class AsyncClient:
             params: URL parameters to include in the request.
             data: JSON data to include in the request body.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
@@ -130,20 +133,27 @@ class AsyncClient:
             RateLimitError: If the API rate limit is exceeded.
             PaysafeError: For any other Paysafe-related error.
         """
-        url = urljoin(self.base_url, path)
+        # Use request-specific retry config if provided, otherwise use client's default
+        config_to_use = retry_config or self.retry_config
         
-        request_headers = self._get_default_headers()
-        if headers:
-            request_headers.update(headers)
+        # Create retry handler with the selected config
+        retry_handler = create_async_retry_handler(config_to_use)
+        
+        # Define the actual request function
+        async def _make_request(**kwargs: Any) -> Dict[str, Any]:
+            url = urljoin(self.base_url, path)
             
-        json_data = None
-        if data is not None:
-            json_data = data
-            
-        try:
+            request_headers = self._get_default_headers()
+            if kwargs.get("headers"):
+                request_headers.update(kwargs["headers"])
+                
+            json_data = None
+            if kwargs.get("data") is not None:
+                json_data = kwargs["data"]
+                
             # Log the request payload
             payload_logger.debug(f"[ASYNC] REQUEST: {method} {url}")
-            payload_logger.debug(f"[ASYNC] PARAMS: {json.dumps(params, indent=2) if params else None}")
+            payload_logger.debug(f"[ASYNC] PARAMS: {json.dumps(kwargs.get('params'), indent=2) if kwargs.get('params') else None}")
             payload_logger.debug(f"[ASYNC] HEADERS: {json.dumps({k: v for k, v in request_headers.items() if k != 'Authorization'}, indent=2) if request_headers else None}")
             payload_logger.debug(f"[ASYNC] DATA: {json.dumps(json_data, indent=2) if json_data else None}")
             
@@ -151,7 +161,7 @@ class AsyncClient:
                 async with session.request(
                     method=method,
                     url=url,
-                    params=params,
+                    params=kwargs.get("params"),
                     json=json_data,
                     headers=request_headers,
                     timeout=self.timeout,
@@ -173,21 +183,10 @@ class AsyncClient:
                         await self._handle_error_response(response, http_body, json_body)
                     
                     return json_body
-                
-        except aiohttp.ClientError as e:
-            msg = f"Network error: {str(e)}"
-            logger.error(msg)
-            raise NetworkError(message=msg) from e
-            
-        except asyncio.TimeoutError as e:
-            msg = f"Request timed out after {self.timeout} seconds"
-            logger.error(msg)
-            raise NetworkError(message=msg) from e
-            
-        except Exception as e:
-            msg = f"Error during request: {str(e)}"
-            logger.error(msg)
-            raise PaysafeError(message=msg) from e
+        
+        # Execute the request with retry handling
+        return await retry_handler(_make_request, method, path, 
+                                  params=params, data=data, headers=headers)
 
     async def _handle_error_response(
         self,
@@ -256,6 +255,7 @@ class AsyncClient:
         path: str,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make an async GET request to the Paysafe API.
@@ -264,11 +264,13 @@ class AsyncClient:
             path: API endpoint path.
             params: URL parameters to include in the request.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
         """
-        return await self.request("GET", path, params=params, headers=headers)
+        return await self.request("GET", path, params=params, headers=headers, retry_config=retry_config)
 
     async def post(
         self,
@@ -276,6 +278,7 @@ class AsyncClient:
         data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make an async POST request to the Paysafe API.
@@ -285,11 +288,13 @@ class AsyncClient:
             data: JSON data to include in the request body.
             params: URL parameters to include in the request.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
         """
-        return await self.request("POST", path, params=params, data=data, headers=headers)
+        return await self.request("POST", path, params=params, data=data, headers=headers, retry_config=retry_config)
 
     async def put(
         self,
@@ -297,6 +302,7 @@ class AsyncClient:
         data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make an async PUT request to the Paysafe API.
@@ -306,17 +312,20 @@ class AsyncClient:
             data: JSON data to include in the request body.
             params: URL parameters to include in the request.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
         """
-        return await self.request("PUT", path, params=params, data=data, headers=headers)
+        return await self.request("PUT", path, params=params, data=data, headers=headers, retry_config=retry_config)
 
     async def delete(
         self,
         path: str,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_config: Optional[RetryConfig] = None,
     ) -> Dict[str, Any]:
         """
         Make an async DELETE request to the Paysafe API.
@@ -325,8 +334,10 @@ class AsyncClient:
             path: API endpoint path.
             params: URL parameters to include in the request.
             headers: Additional HTTP headers to include in the request.
+            retry_config: Custom retry configuration to use for this specific request.
+                          If not provided, the client's default configuration is used.
 
         Returns:
             The parsed JSON response.
         """
-        return await self.request("DELETE", path, params=params, headers=headers)
+        return await self.request("DELETE", path, params=params, headers=headers, retry_config=retry_config)

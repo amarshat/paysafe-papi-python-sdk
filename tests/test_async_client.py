@@ -66,7 +66,7 @@ class TestAsyncClientRequests:
             result = await client.get("test_path", params={"param": "value"})
             
             mock_request.assert_called_once_with(
-                "GET", "test_path", params={"param": "value"}, headers=None
+                "GET", "test_path", params={"param": "value"}, headers=None, retry_config=None
             )
             assert result == {"key": "value"}
 
@@ -87,7 +87,8 @@ class TestAsyncClientRequests:
                 "test_path", 
                 params={"param": "value"}, 
                 data={"data": "value"}, 
-                headers=None
+                headers=None,
+                retry_config=None
             )
             assert result == {"key": "value"}
 
@@ -108,7 +109,8 @@ class TestAsyncClientRequests:
                 "test_path", 
                 params={"param": "value"}, 
                 data={"data": "value"}, 
-                headers=None
+                headers=None,
+                retry_config=None
             )
             assert result == {"key": "value"}
 
@@ -121,6 +123,6 @@ class TestAsyncClientRequests:
             result = await client.delete("test_path", params={"param": "value"})
             
             mock_request.assert_called_once_with(
-                "DELETE", "test_path", params={"param": "value"}, headers=None
+                "DELETE", "test_path", params={"param": "value"}, headers=None, retry_config=None
             )
             assert result == {"key": "value"}
