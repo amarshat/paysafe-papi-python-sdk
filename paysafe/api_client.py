@@ -154,30 +154,41 @@ class Client:
         
         # Create a function to execute a single request attempt
         def _execute_request():
-            # Log the request payload
-            payload_logger.debug(f"REQUEST: {method} {url}")
-            payload_logger.debug(f"PARAMS: {json.dumps(params, indent=2) if params else None}")
-            payload_logger.debug(f"HEADERS: {json.dumps({k: v for k, v in request_headers.items() if k != 'Authorization'}, indent=2) if request_headers else None}")
-            payload_logger.debug(f"DATA: {json.dumps(json_data, indent=2) if json_data else None}")
-            
-            response = self.session.request(
-                method=method,
-                url=url,
-                params=params,
-                json=json_data,
-                headers=request_headers,
-                timeout=self.timeout,
-            )
-            
-            # Log the response payload
-            payload_logger.debug(f"RESPONSE STATUS: {response.status_code}")
-            payload_logger.debug(f"RESPONSE HEADERS: {json.dumps(dict(response.headers), indent=2)}")
             try:
-                payload_logger.debug(f"RESPONSE BODY: {json.dumps(response.json(), indent=2) if response.text else 'No body'}")
-            except ValueError:
-                payload_logger.debug(f"RESPONSE BODY (non-JSON): {response.text[:1000]}")
-            
-            return self._handle_response(response)
+                # Log the request payload
+                payload_logger.debug(f"REQUEST: {method} {url}")
+                payload_logger.debug(f"PARAMS: {json.dumps(params, indent=2) if params else None}")
+                payload_logger.debug(f"HEADERS: {json.dumps({k: v for k, v in request_headers.items() if k != 'Authorization'}, indent=2) if request_headers else None}")
+                payload_logger.debug(f"DATA: {json.dumps(json_data, indent=2) if json_data else None}")
+                
+                response = self.session.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    json=json_data,
+                    headers=request_headers,
+                    timeout=self.timeout,
+                )
+                
+                # Log the response payload
+                payload_logger.debug(f"RESPONSE STATUS: {response.status_code}")
+                payload_logger.debug(f"RESPONSE HEADERS: {json.dumps(dict(response.headers), indent=2)}")
+                try:
+                    payload_logger.debug(f"RESPONSE BODY: {json.dumps(response.json(), indent=2) if response.text else 'No body'}")
+                except ValueError:
+                    payload_logger.debug(f"RESPONSE BODY (non-JSON): {response.text[:1000]}")
+                
+                return self._handle_response(response)
+                
+            except requests.exceptions.Timeout as e:
+                msg = f"Request timed out after {self.timeout} seconds"
+                logger.error(msg)
+                raise NetworkError(message=msg) from e
+                
+            except requests.exceptions.RequestException as e:
+                msg = f"Network error: {str(e)}"
+                logger.error(msg)
+                raise NetworkError(message=msg) from e
         
         # Create a retry handler with the active configuration
         retry_handler = create_retry_handler(active_retry_config)
@@ -185,21 +196,14 @@ class Client:
         try:
             # Execute the request with retry logic
             return retry_handler(_execute_request, method, path)
-            
-        except requests.exceptions.Timeout as e:
-            msg = f"Request timed out after {self.timeout} seconds"
-            logger.error(msg)
-            raise NetworkError(message=msg) from e
-            
-        except requests.exceptions.RequestException as e:
-            msg = f"Network error: {str(e)}"
-            logger.error(msg)
-            raise NetworkError(message=msg) from e
-            
         except Exception as e:
-            msg = f"Error during request: {str(e)}"
-            logger.error(msg)
-            raise PaysafeError(message=msg) from e
+            # This will only be reached if the retry handler fails to handle the exception
+            # or if max retries are exceeded
+            if not isinstance(e, PaysafeError):
+                msg = f"Error during request: {str(e)}"
+                logger.error(msg)
+                raise PaysafeError(message=msg) from e
+            raise
 
     def _handle_response(self, response: Response) -> Dict[str, Any]:
         """
