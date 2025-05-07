@@ -390,29 +390,45 @@ class TestCustomer:
         # Create customer resource
         customer_resource = Customer(client)
         
-        # We need to use session.request for error testing since our error handling
-        # is in the request method of the client
+        # Since we're using the high-level client methods (get, post, etc.)
+        # we need to mock the client.request method which is called by those methods
         
         # Test authentication error
-        client.session.request.return_value = error_response(401, "Invalid API key", "UNAUTHORIZED")
+        client.request.side_effect = AuthenticationError(
+            message="Authentication error: Invalid API key", 
+            code="UNAUTHORIZED", 
+            http_status=401
+        )
         with pytest.raises(AuthenticationError) as exc_info:
             customer_resource.retrieve("cust_123456789")
         assert "Authentication error" in str(exc_info.value)
         
         # Test invalid request error
-        client.session.request.return_value = error_response(400, "Invalid customer ID", "INVALID_REQUEST")
+        client.request.side_effect = InvalidRequestError(
+            message="Invalid customer ID", 
+            code="INVALID_REQUEST", 
+            http_status=400
+        )
         with pytest.raises(InvalidRequestError) as exc_info:
             customer_resource.retrieve("cust_123456789")
         assert "Invalid customer ID" in str(exc_info.value)
         
         # Test rate limit error
-        client.session.request.return_value = error_response(429, "Rate limit exceeded", "RATE_LIMIT_EXCEEDED")
+        client.request.side_effect = RateLimitError(
+            message="Rate limit exceeded", 
+            code="RATE_LIMIT_EXCEEDED", 
+            http_status=429
+        )
         with pytest.raises(RateLimitError) as exc_info:
             customer_resource.retrieve("cust_123456789")
         assert "Rate limit exceeded" in str(exc_info.value)
         
         # Test API error
-        client.session.request.return_value = error_response(500, "Internal server error", "SERVER_ERROR")
+        client.request.side_effect = APIError(
+            message="Internal server error", 
+            code="SERVER_ERROR", 
+            http_status=500
+        )
         with pytest.raises(APIError) as exc_info:
             customer_resource.retrieve("cust_123456789")
         assert "Internal server error" in str(exc_info.value)
