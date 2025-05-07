@@ -288,7 +288,7 @@ def create_retry_handler(
     return retry_handler
 
 
-async def create_async_retry_handler(
+def create_async_retry_handler(
     config: RetryConfig,
 ) -> Callable[[Callable[..., Any], str, str, Dict[str, Any]], Any]:
     """
