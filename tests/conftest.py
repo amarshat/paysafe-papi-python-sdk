@@ -263,14 +263,26 @@ def integration_client(integration_api_key):
 
 
 @pytest.fixture(scope="session")
-def payload_log_file(tmpdir_factory):
-    """Create a log file in the pytest tmpdir to record API request/response payloads."""
-    log_dir = tmpdir_factory.mktemp("paysafe_logs")
-    log_file = log_dir.join("api_payloads.log")
+def payload_log_file(request):
+    """Create a log file in a persistent directory to record API request/response payloads."""
+    # Get the log file path from pytest config
+    log_file = getattr(request.config, "payload_log_file", None)
+    
+    if not log_file:
+        # If log file wasn't set in pytest_configure, create a fallback
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        log_dir = os.path.join(project_root, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = os.path.join(log_dir, f"api_payloads_fallback_{timestamp}.log")
     
     # Set up logging
     payload_logger = logging.getLogger("paysafe.api.payloads")
     payload_logger.setLevel(logging.DEBUG)
+    
+    # Remove any existing handlers
+    for handler in payload_logger.handlers[:]:
+        payload_logger.removeHandler(handler)
     
     # Create file handler
     fh = logging.FileHandler(log_file, mode='w')
@@ -291,7 +303,7 @@ def payload_log_file(tmpdir_factory):
     print(f"\n\n🔍 API PAYLOAD LOG: {log_file}\n")
     
     # Return the log file path
-    return str(log_file)
+    return log_file
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
@@ -312,9 +324,21 @@ def pytest_configure(config):
         "markers", "integration: mark test as an integration test that makes real API calls"
     )
     
-    # Create a payload log file
-    log_dir = config.cache.makedir("paysafe_logs")
-    log_file = os.path.join(log_dir, "api_payloads.log")
-    
-    # Store the log file path in the config for later use
-    config.payload_log_file = log_file
+    # Create a persistent log directory in the project root
+    try:
+        # Create a logs directory in the project root
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        log_dir = os.path.join(project_root, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Create a timestamped log file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = os.path.join(log_dir, f"api_payloads_{timestamp}.log")
+        
+        # Store the log file path in the config for later use
+        config.payload_log_file = log_file
+        
+        print(f"\n📋 API payloads will be logged to: {log_file}\n")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not set up payload log file: {e}")
+        config.payload_log_file = None
