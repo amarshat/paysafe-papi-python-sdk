@@ -42,7 +42,7 @@ class AsyncPayment:
             PaysafeError: If the API returns an error.
         """
         if isinstance(payment, PaymentModel):
-            payment_data = payment.dict(exclude_none=True, by_alias=True)
+            payment_data = payment.model_dump(exclude_none=True, by_alias=True)
         else:
             payment_data = payment
         
@@ -56,7 +56,7 @@ class AsyncPayment:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return PaymentModel.parse_obj(response_data)
+        return PaymentModel.model_validate(response_data)
     
     async def retrieve(self, payment_id: str) -> PaymentModel:
         """
@@ -79,7 +79,7 @@ class AsyncPayment:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return PaymentModel.parse_obj(response_data)
+        return PaymentModel.model_validate(response_data)
     
     async def list(
         self,
@@ -130,7 +130,7 @@ class AsyncPayment:
         response_data = transform_keys_to_snake_case(response)
         
         payments_data = response_data.get("payments", [])
-        return [PaymentModel.parse_obj(payment) for payment in payments_data]
+        return [PaymentModel.model_validate(payment) for payment in payments_data]
     
     async def cancel(self, payment_id: str) -> PaymentModel:
         """
@@ -153,7 +153,7 @@ class AsyncPayment:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return PaymentModel.parse_obj(response_data)
+        return PaymentModel.model_validate(response_data)
     
     async def capture(self, payment_id: str, amount: Optional[int] = None) -> PaymentModel:
         """
@@ -184,4 +184,4 @@ class AsyncPayment:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return PaymentModel.parse_obj(response_data)
+        return PaymentModel.model_validate(response_data)
