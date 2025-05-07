@@ -1,0 +1,515 @@
+{% extends "layout.html" %}
+
+{% block title %}Examples - Paysafe Python SDK{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Examples</h1>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <div class="list-group sticky-top" style="top: 2rem;">
+                <a href="#sync-payment" class="list-group-item list-group-item-action">Synchronous Payment</a>
+                <a href="#async-payment" class="list-group-item list-group-item-action">Asynchronous Payment</a>
+                <a href="#customer-management" class="list-group-item list-group-item-action">Customer Management</a>
+                <a href="#error-handling" class="list-group-item list-group-item-action">Error Handling</a>
+                <a href="#payment-testing" class="list-group-item list-group-item-action">Payment Testing</a>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <section id="sync-payment" class="mb-5">
+                <h2>Synchronous Payment Processing</h2>
+                <p>This example shows how to process a payment using the synchronous API:</p>
+                <div class="code-block">
+                    <pre><code>"""
+Example demonstrating synchronous usage of the Paysafe SDK.
+"""
+
+import os
+from typing import Optional
+
+from paysafe import Client
+from paysafe.api_resources.payment import Payment as PaymentResource
+from paysafe.models.payment import CardPaymentMethod, Payment
+
+
+def create_payment(api_key: str, amount: int = 1000, currency: str = "USD") -> Optional[str]:
+    """
+    Create a payment using the synchronous API.
+    
+    Args:
+        api_key: Your Paysafe API key.
+        amount: The payment amount in cents (default: 1000 = $10.00).
+        currency: The payment currency code (default: USD).
+        
+    Returns:
+        The ID of the created payment if successful, None otherwise.
+    """
+    try:
+        # Initialize the client
+        client = Client(api_key=api_key, environment="sandbox")
+        
+        # Create a payment resource
+        payment_resource = PaymentResource(client)
+        
+        # Create a payment method
+        payment_method = CardPaymentMethod(
+            card_number="4111111111111111",
+            card_expiry={"month": 12, "year": 25},
+            card_holder_name="John Doe",
+            card_cvv="123"
+        )
+        
+        # Create a test payment
+        payment = Payment(
+            amount=amount,
+            currency_code=currency,
+            payment_method=payment_method,
+            description="Sync test payment"
+        )
+        
+        # Submit the payment
+        result = payment_resource.create(payment)
+        
+        print(f"Payment created successfully:")
+        print(f"  ID: {result.id}")
+        print(f"  Status: {result.status}")
+        print(f"  Amount: {result.amount/100} {result.currency_code}")
+        
+        return result.id
+    
+    except Exception as e:
+        print(f"Error creating payment: {e}")
+        return None
+
+
+def retrieve_payment(api_key: str, payment_id: str) -> None:
+    """
+    Retrieve a payment using the synchronous API.
+    
+    Args:
+        api_key: Your Paysafe API key.
+        payment_id: The ID of the payment to retrieve.
+    """
+    try:
+        # Initialize the client
+        client = Client(api_key=api_key, environment="sandbox")
+        
+        # Create a payment resource
+        payment_resource = PaymentResource(client)
+        
+        # Retrieve the payment
+        result = payment_resource.retrieve(payment_id)
+        
+        print(f"\nPayment {payment_id} details:")
+        print(f"  Status: {result.status}")
+        print(f"  Amount: {result.amount/100} {result.currency_code}")
+        print(f"  Created at: {result.created_at}")
+        
+    except Exception as e:
+        print(f"Error retrieving payment: {e}")
+
+
+def main():
+    """Run the example."""
+    # Get API key from environment variable
+    api_key = os.environ.get("PAYSAFE_API_KEY")
+    
+    if not api_key:
+        print("Please set the PAYSAFE_API_KEY environment variable.")
+        return
+    
+    # Create a payment
+    payment_id = create_payment(api_key)
+    
+    if payment_id:
+        # Retrieve the payment
+        retrieve_payment(api_key, payment_id)
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+                </div>
+            </section>
+            
+            <section id="async-payment" class="mb-5">
+                <h2>Asynchronous Payment Processing</h2>
+                <p>This example shows how to process a payment using the asynchronous API:</p>
+                <div class="code-block">
+                    <pre><code>"""
+Example demonstrating async usage of the Paysafe SDK.
+"""
+
+import asyncio
+import os
+from typing import Optional
+
+from paysafe import create_async_client
+from paysafe.api_resources.async_payment import AsyncPayment
+from paysafe.models.payment import CardPaymentMethod, Payment
+
+
+async def create_payment(api_key: str, amount: int = 1000, currency: str = "USD") -> Optional[str]:
+    """
+    Create a payment using the async API.
+    
+    Args:
+        api_key: Your Paysafe API key.
+        amount: The payment amount in cents (default: 1000 = $10.00).
+        currency: The payment currency code (default: USD).
+        
+    Returns:
+        The ID of the created payment if successful, None otherwise.
+    """
+    try:
+        # Initialize the async client
+        client = create_async_client(api_key=api_key, environment="sandbox")
+        
+        # Create a payment resource
+        payment_resource = AsyncPayment(client)
+        
+        # Create a payment method
+        payment_method = CardPaymentMethod(
+            card_number="4111111111111111",
+            card_expiry={"month": 12, "year": 25},
+            card_holder_name="John Doe",
+            card_cvv="123"
+        )
+        
+        # Create a test payment
+        payment = Payment(
+            amount=amount,
+            currency_code=currency,
+            payment_method=payment_method,
+            description="Async test payment"
+        )
+        
+        # Submit the payment asynchronously
+        result = await payment_resource.create(payment)
+        
+        print(f"Payment created successfully:")
+        print(f"  ID: {result.id}")
+        print(f"  Status: {result.status}")
+        print(f"  Amount: {result.amount/100} {result.currency_code}")
+        
+        return result.id
+    
+    except Exception as e:
+        print(f"Error creating payment: {e}")
+        return None
+
+
+async def retrieve_payment(api_key: str, payment_id: str) -> None:
+    """
+    Retrieve a payment using the async API.
+    
+    Args:
+        api_key: Your Paysafe API key.
+        payment_id: The ID of the payment to retrieve.
+    """
+    try:
+        # Initialize the async client
+        client = create_async_client(api_key=api_key, environment="sandbox")
+        
+        # Create a payment resource
+        payment_resource = AsyncPayment(client)
+        
+        # Retrieve the payment asynchronously
+        result = await payment_resource.retrieve(payment_id)
+        
+        print(f"\nPayment {payment_id} details:")
+        print(f"  Status: {result.status}")
+        print(f"  Amount: {result.amount/100} {result.currency_code}")
+        print(f"  Created at: {result.created_at}")
+        
+    except Exception as e:
+        print(f"Error retrieving payment: {e}")
+
+
+async def main():
+    """Run the example."""
+    # Get API key from environment variable
+    api_key = os.environ.get("PAYSAFE_API_KEY")
+    
+    if not api_key:
+        print("Please set the PAYSAFE_API_KEY environment variable.")
+        return
+    
+    # Create a payment
+    payment_id = await create_payment(api_key)
+    
+    if payment_id:
+        # Retrieve the payment
+        await retrieve_payment(api_key, payment_id)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())</code></pre>
+                </div>
+            </section>
+            
+            <section id="customer-management" class="mb-5">
+                <h2>Customer Management</h2>
+                <p>This example shows how to create, retrieve, update, and delete customers:</p>
+                <div class="code-block">
+                    <pre><code>"""
+Example demonstrating customer management with the Paysafe SDK.
+"""
+
+import os
+from paysafe import Client
+from paysafe.models.customer import Customer as CustomerModel
+from paysafe.api_resources.customer import Customer as CustomerResource
+
+
+def create_customer(client, first_name, last_name, email):
+    """Create a new customer."""
+    customer_resource = CustomerResource(client)
+    
+    # Create customer data
+    customer = CustomerModel(
+        first_name=first_name,
+        last_name=last_name,
+        email=email
+    )
+    
+    # Submit to API
+    result = customer_resource.create(customer)
+    
+    print(f"Customer created with ID: {result.id}")
+    return result
+
+
+def retrieve_customer(client, customer_id):
+    """Retrieve a customer by ID."""
+    customer_resource = CustomerResource(client)
+    
+    # Retrieve customer
+    result = customer_resource.retrieve(customer_id)
+    
+    print(f"Retrieved customer: {result.first_name} {result.last_name}")
+    return result
+
+
+def update_customer(client, customer_id, **kwargs):
+    """Update a customer."""
+    customer_resource = CustomerResource(client)
+    
+    # Update customer
+    result = customer_resource.update(customer_id, kwargs)
+    
+    print(f"Updated customer {result.id}: {result.first_name} {result.last_name}")
+    return result
+
+
+def delete_customer(client, customer_id):
+    """Delete a customer."""
+    customer_resource = CustomerResource(client)
+    
+    # Delete customer
+    result = customer_resource.delete(customer_id)
+    
+    print(f"Deleted customer: {customer_id}")
+    return result
+
+
+def main():
+    """Run the example."""
+    # Get API key from environment variable
+    api_key = os.environ.get("PAYSAFE_API_KEY")
+    
+    if not api_key:
+        print("Please set the PAYSAFE_API_KEY environment variable.")
+        return
+    
+    # Initialize the client
+    client = Client(api_key=api_key, environment="sandbox")
+    
+    # Create a customer
+    customer = create_customer(
+        client,
+        first_name="John",
+        last_name="Doe",
+        email="john.doe@example.com"
+    )
+    
+    # Retrieve the customer
+    retrieved = retrieve_customer(client, customer.id)
+    
+    # Update the customer
+    updated = update_customer(
+        client,
+        customer.id,
+        phone="555-123-4567"
+    )
+    
+    # Delete the customer
+    delete_customer(client, customer.id)
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+                </div>
+            </section>
+            
+            <section id="error-handling" class="mb-5">
+                <h2>Error Handling</h2>
+                <p>This example shows how to handle different types of errors:</p>
+                <div class="code-block">
+                    <pre><code>"""
+Example demonstrating error handling with the Paysafe SDK.
+"""
+
+import os
+from paysafe import Client
+from paysafe.exceptions import (
+    PaysafeError,
+    AuthenticationError,
+    InvalidRequestError,
+    APIError,
+    NetworkError,
+    RateLimitError
+)
+from paysafe.models.payment import Payment, CardPaymentMethod
+from paysafe.api_resources.payment import Payment as PaymentResource
+
+
+def handle_payment_with_errors(api_key):
+    """Demonstrate different error handling scenarios."""
+    try:
+        # Initialize client
+        client = Client(api_key=api_key, environment="sandbox")
+        payment_resource = PaymentResource(client)
+        
+        # Try to retrieve a non-existent payment
+        print("Attempting to retrieve non-existent payment...")
+        payment = payment_resource.retrieve("non_existent_id")
+        
+    except AuthenticationError as e:
+        print(f"Authentication failed: {e}")
+        print(f"Error code: {e.code}")
+        print(f"HTTP status: {e.http_status}")
+        
+    except InvalidRequestError as e:
+        print(f"Invalid request: {e}")
+        print(f"Error code: {e.code}")
+        print(f"HTTP status: {e.http_status}")
+        
+    except APIError as e:
+        print(f"API error: {e}")
+        print(f"Error code: {e.code}")
+        print(f"HTTP status: {e.http_status}")
+        
+    except NetworkError as e:
+        print(f"Network error: {e}")
+        
+    except RateLimitError as e:
+        print(f"Rate limit exceeded: {e}")
+        print(f"Error code: {e.code}")
+        print(f"HTTP status: {e.http_status}")
+        
+    except PaysafeError as e:
+        print(f"Generic Paysafe error: {e}")
+        
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+
+
+def main():
+    """Run the example."""
+    # Get API key from environment variable
+    api_key = os.environ.get("PAYSAFE_API_KEY")
+    
+    if not api_key:
+        print("Please set the PAYSAFE_API_KEY environment variable.")
+        return
+    
+    # Run error handling example
+    handle_payment_with_errors(api_key)
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+                </div>
+            </section>
+            
+            <section id="payment-testing" class="mb-5">
+                <h2>Payment Testing with AI Agents</h2>
+                <p>This example shows how to use the AI agents to test payment workflows:</p>
+                <div class="code-block">
+                    <pre><code>"""
+Example demonstrating how to use AI agents for payment testing.
+"""
+
+import logging
+from paysafe.testing.mock_client import MockClient
+from paysafe.testing.payment_agents import (
+    PaymentAgent,
+    FraudDetectionAgent,
+    RecoveryAgent
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger("payment_testing")
+
+
+def run_payment_tests():
+    """Run payment tests with the AI agents."""
+    # Create a mock client
+    client = MockClient(
+        api_key="mock_api_key",
+        environment="sandbox",
+        fail_rate=0.05,  # 5% chance of random failure
+        latency=(0.1, 0.5),  # Random latency between 0.1 and 0.5 seconds
+    )
+    
+    # Run basic payment tests
+    logger.info("Running basic payment tests...")
+    payment_agent = PaymentAgent(client)
+    payment_results = payment_agent.run()
+    
+    # Print results
+    print("\nBasic Payment Test Results:")
+    for result in payment_results:
+        print(f"\n{result}")
+    
+    # Reset mock data
+    client.reset_mock_server()
+    
+    # Run fraud detection tests
+    logger.info("Running fraud detection tests...")
+    fraud_agent = FraudDetectionAgent(client)
+    fraud_results = fraud_agent.run()
+    
+    # Print results
+    print("\nFraud Detection Test Results:")
+    for result in fraud_results:
+        print(f"\n{result}")
+    
+    # Reset mock data
+    client.reset_mock_server()
+    
+    # Run recovery tests
+    logger.info("Running recovery tests...")
+    recovery_agent = RecoveryAgent(client)
+    recovery_results = recovery_agent.run()
+    
+    # Print results
+    print("\nRecovery Test Results:")
+    for result in recovery_results:
+        print(f"\n{result}")
+
+
+if __name__ == "__main__":
+    run_payment_tests()</code></pre>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

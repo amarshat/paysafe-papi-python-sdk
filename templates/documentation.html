@@ -1,0 +1,230 @@
+{% extends "layout.html" %}
+
+{% block title %}Documentation - Paysafe Python SDK{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Documentation</h1>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <div class="list-group sticky-top" style="top: 2rem;">
+                <a href="#installation" class="list-group-item list-group-item-action">Installation</a>
+                <a href="#basic-usage" class="list-group-item list-group-item-action">Basic Usage</a>
+                <a href="#async-support" class="list-group-item list-group-item-action">Async Support</a>
+                <a href="#error-handling" class="list-group-item list-group-item-action">Error Handling</a>
+                <a href="#api-resources" class="list-group-item list-group-item-action">API Resources</a>
+                <a href="#testing" class="list-group-item list-group-item-action">Testing</a>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <section id="installation" class="mb-5">
+                <h2>Installation</h2>
+                <p>Install the SDK using pip:</p>
+                <div class="code-block">
+                    <pre><code>pip install paysafe</code></pre>
+                </div>
+                
+                <p>For async support, install with the async extras:</p>
+                <div class="code-block">
+                    <pre><code>pip install "paysafe[async]"</code></pre>
+                </div>
+                
+                <p>For development, install with the dev extras:</p>
+                <div class="code-block">
+                    <pre><code>pip install "paysafe[dev]"</code></pre>
+                </div>
+            </section>
+            
+            <section id="basic-usage" class="mb-5">
+                <h2>Basic Usage</h2>
+                <h4>Client Initialization</h4>
+                <div class="code-block">
+                    <pre><code>from paysafe import Client
+
+# For sandbox testing
+client = Client(api_key="your_api_key", environment="sandbox")
+
+# For production
+# client = Client(api_key="your_api_key", environment="production")</code></pre>
+                </div>
+                
+                <h4>Processing a Payment</h4>
+                <div class="code-block">
+                    <pre><code>from paysafe import Client
+from paysafe.models.payment import Payment, CardPaymentMethod
+
+# Initialize the client
+client = Client(api_key="your_api_key", environment="sandbox")
+
+# Create a payment method
+payment_method = CardPaymentMethod(
+    card_number="4111111111111111",
+    card_expiry={"month": 12, "year": 25},
+    card_holder_name="John Doe",
+    card_cvv="123"
+)
+
+# Create a payment
+payment = Payment(
+    amount=1000,  # $10.00
+    currency_code="USD",
+    payment_method=payment_method,
+    description="Test payment"
+)
+
+# Submit the payment
+payment_resource = client.Payment
+result = payment_resource.create(payment)
+
+print(f"Payment created with ID: {result.id}")
+print(f"Status: {result.status}")</code></pre>
+                </div>
+                
+                <h4>Managing Customers</h4>
+                <div class="code-block">
+                    <pre><code>from paysafe import Client
+from paysafe.models.customer import Customer
+
+# Initialize the client
+client = Client(api_key="your_api_key", environment="sandbox")
+
+# Create a customer
+customer = Customer(
+    first_name="John",
+    last_name="Doe",
+    email="john.doe@example.com",
+    phone="1234567890"
+)
+
+# Submit the customer
+customer_resource = client.Customer
+result = customer_resource.create(customer)
+
+print(f"Customer created with ID: {result.id}")</code></pre>
+                </div>
+            </section>
+            
+            <section id="async-support" class="mb-5">
+                <h2>Async Support</h2>
+                <p>The SDK provides first-class async support for non-blocking operations:</p>
+                <div class="code-block">
+                    <pre><code>import asyncio
+from paysafe import create_async_client
+from paysafe.api_resources.async_payment import AsyncPayment
+from paysafe.models.payment import CardPaymentMethod, Payment
+
+async def process_payment():
+    # Initialize the async client
+    client = create_async_client(api_key="your_api_key", environment="sandbox")
+    
+    # Create a payment method
+    payment_method = CardPaymentMethod(
+        card_number="4111111111111111",
+        card_expiry={"month": 12, "year": 25},
+        card_holder_name="John Doe",
+        card_cvv="123"
+    )
+    
+    # Create a payment
+    payment = Payment(
+        amount=1000,  # $10.00
+        currency_code="USD",
+        payment_method=payment_method,
+        description="Async test payment"
+    )
+    
+    # Submit the payment asynchronously
+    payment_resource = AsyncPayment(client)
+    result = await payment_resource.create(payment)
+    
+    print(f"Payment created with ID: {result.id}")
+    print(f"Status: {result.status}")
+
+# Run the async function
+asyncio.run(process_payment())</code></pre>
+                </div>
+            </section>
+            
+            <section id="error-handling" class="mb-5">
+                <h2>Error Handling</h2>
+                <p>The SDK provides a comprehensive exception hierarchy for handling errors:</p>
+                <div class="code-block">
+                    <pre><code>from paysafe import Client
+from paysafe.exceptions import (
+    PaysafeError,
+    AuthenticationError,
+    InvalidRequestError,
+    APIError,
+    NetworkError,
+    RateLimitError
+)
+
+try:
+    # Try some API operation
+    client = Client(api_key="your_api_key", environment="sandbox")
+    payment_resource = client.Payment
+    payment = payment_resource.retrieve("nonexistent_id")
+except AuthenticationError as e:
+    print(f"Authentication failed: {e}")
+except InvalidRequestError as e:
+    print(f"Invalid request: {e}")
+except APIError as e:
+    print(f"API error: {e}")
+except NetworkError as e:
+    print(f"Network error: {e}")
+except RateLimitError as e:
+    print(f"Rate limit exceeded: {e}")
+except PaysafeError as e:
+    print(f"An error occurred: {e}")</code></pre>
+                </div>
+            </section>
+            
+            <section id="api-resources" class="mb-5">
+                <h2>API Resources</h2>
+                <p>The SDK provides the following API resources:</p>
+                
+                <h4>Payment</h4>
+                <p>Create, retrieve, and manage payments</p>
+                
+                <h4>Customer</h4>
+                <p>Create, retrieve, update, and delete customers</p>
+                
+                <h4>Card</h4>
+                <p>Manage cards for customers</p>
+                
+                <h4>Refund</h4>
+                <p>Process refunds for payments</p>
+                
+                <h4>Webhook</h4>
+                <p>Manage webhooks for event notifications</p>
+            </section>
+            
+            <section id="testing" class="mb-5">
+                <h2>Testing</h2>
+                <p>The SDK includes a comprehensive testing framework with mock servers and intelligent AI agents for testing payment workflows:</p>
+                <div class="code-block">
+                    <pre><code>from paysafe.testing.mock_client import MockClient
+from paysafe.testing.payment_agents import PaymentAgent
+
+# Create a mock client
+client = MockClient(api_key="mock_api_key", environment="sandbox")
+
+# Create a payment agent
+agent = PaymentAgent(client)
+
+# Run tests
+results = agent.run()
+
+# Display results
+for result in results:
+    print(result)</code></pre>
+                </div>
+                
+                <p>See the <a href="/testing">Testing page</a> for an interactive demonstration of the AI agents.</p>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

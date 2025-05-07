@@ -1,0 +1,201 @@
+{% extends "layout.html" %}
+
+{% block title %}Testing - Paysafe Python SDK{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Payment Testing with AI Agents</h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Intelligent Payment Testing</h5>
+                    <p class="card-text">
+                        The Paysafe Python SDK includes AI agents that can intelligently test payment workflows, 
+                        handle failures, and explore different code paths without requiring real API credentials.
+                    </p>
+                    <p>
+                        Select which types of tests you want to run:
+                    </p>
+                    
+                    <form id="test-form">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" value="payment" id="paymentTest" checked>
+                            <label class="form-check-label" for="paymentTest">
+                                Basic Payment Tests
+                                <small class="text-muted d-block">Tests successful and failed payments, card validations, and refunds</small>
+                            </label>
+                        </div>
+                        
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" value="fraud" id="fraudTest">
+                            <label class="form-check-label" for="fraudTest">
+                                Fraud Detection Tests
+                                <small class="text-muted d-block">Tests high-value payments, suspicious activity patterns, and velocity checks</small>
+                            </label>
+                        </div>
+                        
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" value="recovery" id="recoveryTest">
+                            <label class="form-check-label" for="recoveryTest">
+                                Recovery Tests
+                                <small class="text-muted d-block">Tests idempotent requests and recovery from network errors</small>
+                            </label>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" value="stress" id="stressTest">
+                            <label class="form-check-label" for="stressTest">
+                                Stress Tests
+                                <small class="text-muted d-block">Tests performance under high load with concurrent requests</small>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="run-tests">Run Tests</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card d-none" id="results-card">
+                <div class="card-body">
+                    <h5 class="card-title">Test Results</h5>
+                    <div class="progress mb-3">
+                        <div class="progress-bar" role="progressbar" id="success-rate" style="width: 0%"></div>
+                    </div>
+                    
+                    <div id="results-container">
+                        <!-- Test results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const testForm = document.getElementById('test-form');
+    const resultsCard = document.getElementById('results-card');
+    const resultsContainer = document.getElementById('results-container');
+    const successRate = document.getElementById('success-rate');
+    
+    testForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Get selected test types
+        const testTypes = [];
+        if (document.getElementById('paymentTest').checked) testTypes.push('payment');
+        if (document.getElementById('fraudTest').checked) testTypes.push('fraud');
+        if (document.getElementById('recoveryTest').checked) testTypes.push('recovery');
+        if (document.getElementById('stressTest').checked) testTypes.push('stress');
+        
+        if (testTypes.length === 0) {
+            alert('Please select at least one test type');
+            return;
+        }
+        
+        // Disable form during test
+        const submitButton = document.getElementById('run-tests');
+        submitButton.disabled = true;
+        submitButton.innerHTML = 'Running Tests...';
+        
+        // Clear previous results
+        resultsContainer.innerHTML = '<div class="alert alert-info">Running tests, please wait...</div>';
+        resultsCard.classList.remove('d-none');
+        
+        // Run tests
+        fetch('/api/run-tests', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                test_types: testTypes
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Display results
+                displayResults(data);
+            } else {
+                resultsContainer.innerHTML = `<div class="alert alert-danger">Error running tests: ${data.error}</div>`;
+            }
+            
+            // Re-enable form
+            submitButton.disabled = false;
+            submitButton.innerHTML = 'Run Tests';
+        })
+        .catch(error => {
+            resultsContainer.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            submitButton.disabled = false;
+            submitButton.innerHTML = 'Run Tests';
+        });
+    });
+    
+    function displayResults(data) {
+        // Update success rate
+        const rate = (data.successful_tests / data.total_tests) * 100;
+        successRate.style.width = `${rate}%`;
+        successRate.innerHTML = `${rate.toFixed(1)}% Success`;
+        
+        if (rate > 80) {
+            successRate.classList.add('bg-success');
+        } else if (rate > 50) {
+            successRate.classList.add('bg-warning');
+        } else {
+            successRate.classList.add('bg-danger');
+        }
+        
+        // Display results
+        resultsContainer.innerHTML = '';
+        
+        // Display summary
+        const summary = document.createElement('div');
+        summary.className = 'alert alert-primary mb-3';
+        summary.innerHTML = `
+            <strong>Summary:</strong> ${data.successful_tests} of ${data.total_tests} tests passed (${rate.toFixed(1)}%)
+        `;
+        resultsContainer.appendChild(summary);
+        
+        // Display individual results
+        data.results.forEach(result => {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${result.success ? 'success' : 'failure'}`;
+            
+            let html = `<h5>${result.scenario}</h5>`;
+            
+            html += `<div><strong>Status:</strong> ${result.success ? 'Success' : 'Failure'}</div>`;
+            html += `<div><strong>Execution Time:</strong> ${result.execution_time.toFixed(2)}s</div>`;
+            
+            if (result.error_message) {
+                html += `<div class="text-danger"><strong>Error:</strong> ${result.error_message}</div>`;
+            }
+            
+            if (result.payment_id) {
+                html += `<div><strong>Payment ID:</strong> ${result.payment_id}</div>`;
+            }
+            
+            if (result.status) {
+                html += `<div><strong>Status:</strong> ${result.status}</div>`;
+            }
+            
+            if (result.amount) {
+                const amount = result.amount / 100;
+                html += `<div><strong>Amount:</strong> $${amount.toFixed(2)}</div>`;
+            }
+            
+            resultDiv.innerHTML = html;
+            resultsContainer.appendChild(resultDiv);
+        });
+    }
+});
+</script>
+{% endblock %}
