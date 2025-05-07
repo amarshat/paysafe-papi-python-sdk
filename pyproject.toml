@@ -22,4 +22,5 @@ dependencies = [
     "isort>=6.0.1",
     "mypy>=1.15.0",
     "requests-mock>=1.12.1",
+    "python-dotenv>=1.1.0",
 ]

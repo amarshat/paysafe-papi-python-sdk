@@ -3,6 +3,7 @@ Fixtures for testing the Paysafe SDK.
 """
 
 import json
+import os
 import uuid
 from datetime import datetime
 from unittest import mock
@@ -13,6 +14,34 @@ from requests import Response
 from paysafe import Client
 from paysafe.models.customer import Customer, CustomerBillingDetails
 from paysafe.models.payment import BankAccountPaymentMethod, CardPaymentMethod, Payment, PaymentStatus
+
+
+# Define a pytest marker for integration tests
+def pytest_configure(config):
+    """Configure pytest."""
+    config.addinivalue_line(
+        "markers", "integration: mark test as an integration test that makes real API calls"
+    )
+
+
+# Skip integration tests by default unless the --integration flag is passed
+def pytest_addoption(parser):
+    """Add command-line options to pytest."""
+    parser.addoption(
+        "--integration",
+        action="store_true",
+        default=False,
+        help="Run integration tests that make real API calls",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Modify test collection to handle integration tests."""
+    if not config.getoption("--integration"):
+        skip_integration = pytest.mark.skip(reason="Need --integration option to run")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip_integration)
 
 
 @pytest.fixture
@@ -221,3 +250,18 @@ def mock_response():
     response.text = json.dumps({"success": True})
     response.content = json.dumps({"success": True}).encode("utf-8")
     return response
+
+
+@pytest.fixture
+def integration_api_key():
+    """Return a real API key for integration tests."""
+    api_key = os.environ.get("PAYSAFE_TEST_API_KEY")
+    if not api_key:
+        pytest.skip("PAYSAFE_TEST_API_KEY environment variable not set")
+    return api_key
+
+
+@pytest.fixture
+def integration_client(integration_api_key):
+    """Create a real client for integration tests."""
+    return Client(api_key=integration_api_key, environment="sandbox")
