@@ -2,50 +2,53 @@
 Tests for the Customer resource.
 """
 
-import pytest
 import json
+import os
+import re
+from datetime import datetime
 from unittest import mock
 
+import pytest
+
+from paysafe import Client
 from paysafe.api_resources.customer import Customer
-from paysafe.models.customer import Customer as CustomerModel
-from paysafe.exceptions import InvalidRequestError, PaysafeError
+from paysafe.exceptions import (APIError, AuthenticationError, InvalidRequestError,
+                               NetworkError, PaysafeError, RateLimitError)
+from paysafe.models.customer import Customer as CustomerModel, CustomerStatus, CustomerBillingDetails
 
 
 class TestCustomer:
-    """Tests for the Customer resource."""
+    """Unit tests for the Customer resource."""
 
-    def test_create(self, client, mock_response):
-        """Test customer creation."""
+    def test_create(self, client, successful_response, sample_customer):
+        """Test customer creation with mocked response."""
         # Setup mock response
-        mock_response.json.return_value = {
-            "id": "customer123",
+        customer_data = {
+            "id": "cust_123456789",
             "firstName": "John",
             "lastName": "Doe",
             "email": "john.doe@example.com",
-            "status": "ACTIVE"
+            "phone": "1234567890",
+            "status": "ACTIVE",
+            "createdAt": datetime.now().isoformat(),
+            "updatedAt": datetime.now().isoformat()
         }
-        client.session.request.return_value = mock_response
+        response = successful_response(customer_data)
+        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
         
-        # Create customer data
-        customer_data = {
-            "first_name": "John",
-            "last_name": "Doe",
-            "email": "john.doe@example.com"
-        }
-        
         # Create customer
-        customer = customer_resource.create(customer_data)
+        customer = customer_resource.create(sample_customer)
         
         # Verify result
         assert isinstance(customer, CustomerModel)
-        assert customer.id == "customer123"
+        assert customer.id == "cust_123456789"
         assert customer.first_name == "John"
         assert customer.last_name == "Doe"
         assert customer.email == "john.doe@example.com"
-        assert customer.status.value == "ACTIVE"
+        assert customer.status == CustomerStatus.ACTIVE
         
         # Verify API call
         client.session.request.assert_called_once()
@@ -58,37 +61,130 @@ class TestCustomer:
         assert "firstName" in sent_data
         assert "lastName" in sent_data
         
-    def test_retrieve(self, client, mock_response):
-        """Test customer retrieval."""
+    def test_create_with_dictionary(self, client, successful_response):
+        """Test customer creation using a dictionary."""
         # Setup mock response
-        mock_response.json.return_value = {
-            "id": "customer123",
+        customer_data = {
+            "id": "cust_123456789",
             "firstName": "John",
             "lastName": "Doe",
             "email": "john.doe@example.com",
             "status": "ACTIVE"
         }
-        client.session.request.return_value = mock_response
+        response = successful_response(customer_data)
+        client.session.request.return_value = response
+        
+        # Create customer resource
+        customer_resource = Customer(client)
+        
+        # Create customer data as dictionary
+        customer_data = {
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com",
+            "phone": "1234567890"
+        }
+        
+        # Create customer
+        customer = customer_resource.create(customer_data)
+        
+        # Verify result
+        assert isinstance(customer, CustomerModel)
+        assert customer.id == "cust_123456789"
+        assert customer.first_name == "John"
+        assert customer.last_name == "Doe"
+        assert customer.email == "john.doe@example.com"
+        
+        # Verify API call
+        client.session.request.assert_called_once()
+        
+    def test_create_with_billing_details(self, client, successful_response):
+        """Test customer creation with billing details."""
+        # Setup mock response
+        customer_data = {
+            "id": "cust_123456789",
+            "firstName": "John",
+            "lastName": "Doe",
+            "email": "john.doe@example.com",
+            "billingDetails": {
+                "street": "123 Main St",
+                "city": "Anytown",
+                "state": "CA",
+                "country": "US",
+                "zip": "12345"
+            },
+            "status": "ACTIVE"
+        }
+        response = successful_response(customer_data)
+        client.session.request.return_value = response
+        
+        # Create customer resource
+        customer_resource = Customer(client)
+        
+        # Create billing details
+        billing_details = CustomerBillingDetails(
+            street="123 Main St",
+            city="Anytown",
+            state="CA",
+            country="US",
+            zip="12345"
+        )
+        
+        # Create customer
+        customer = CustomerModel(
+            first_name="John",
+            last_name="Doe",
+            email="john.doe@example.com",
+            billing_details=billing_details
+        )
+        
+        # Submit customer
+        result = customer_resource.create(customer)
+        
+        # Verify result
+        assert isinstance(result, CustomerModel)
+        assert result.id == "cust_123456789"
+        assert result.billing_details is not None
+        assert result.billing_details.street == "123 Main St"
+        assert result.billing_details.city == "Anytown"
+        assert result.billing_details.country == "US"
+        
+        # Verify API call
+        client.session.request.assert_called_once()
+        sent_data = json.loads(client.session.request.call_args[1]["json"])
+        assert "billingDetails" in sent_data
+        
+    def test_retrieve(self, client, successful_response):
+        """Test customer retrieval."""
+        # Setup mock response
+        customer_data = {
+            "id": "cust_123456789",
+            "firstName": "John",
+            "lastName": "Doe",
+            "email": "john.doe@example.com",
+            "status": "ACTIVE"
+        }
+        response = successful_response(customer_data)
+        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
         
         # Retrieve customer
-        customer = customer_resource.retrieve("customer123")
+        customer = customer_resource.retrieve("cust_123456789")
         
         # Verify result
         assert isinstance(customer, CustomerModel)
-        assert customer.id == "customer123"
+        assert customer.id == "cust_123456789"
         assert customer.first_name == "John"
         assert customer.last_name == "Doe"
         assert customer.email == "john.doe@example.com"
-        assert customer.status.value == "ACTIVE"
         
         # Verify API call
         client.session.request.assert_called_once()
         call_args = client.session.request.call_args
         assert call_args[1]["method"] == "GET"
-        assert "customers/customer123" in call_args[1]["url"]
+        assert "customers/cust_123456789" in call_args[1]["url"]
         
     def test_retrieve_invalid_id(self, client):
         """Test customer retrieval with invalid ID."""
@@ -101,88 +197,99 @@ class TestCustomer:
         
         assert "customer_id cannot be None or empty" in str(exc_info.value)
         
-    def test_update(self, client, mock_response):
+    def test_update(self, client, successful_response):
         """Test customer update."""
         # Setup mock response
-        mock_response.json.return_value = {
-            "id": "customer123",
-            "firstName": "John",
-            "lastName": "Smith",  # Updated
-            "email": "john.doe@example.com",
+        customer_data = {
+            "id": "cust_123456789",
+            "firstName": "Jane",  # Changed from John to Jane
+            "lastName": "Doe",
+            "email": "jane.doe@example.com",  # Updated email
             "status": "ACTIVE"
         }
-        client.session.request.return_value = mock_response
+        response = successful_response(customer_data)
+        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
         
-        # Update data
-        update_data = {
-            "last_name": "Smith"
+        # Update customer data
+        customer_update = {
+            "first_name": "Jane",
+            "email": "jane.doe@example.com"
         }
         
         # Update customer
-        customer = customer_resource.update("customer123", update_data)
+        customer = customer_resource.update("cust_123456789", customer_update)
         
         # Verify result
         assert isinstance(customer, CustomerModel)
-        assert customer.id == "customer123"
-        assert customer.last_name == "Smith"
+        assert customer.id == "cust_123456789"
+        assert customer.first_name == "Jane"  # Verify name changed
+        assert customer.email == "jane.doe@example.com"  # Verify email updated
         
         # Verify API call
         client.session.request.assert_called_once()
         call_args = client.session.request.call_args
         assert call_args[1]["method"] == "PUT"
-        assert "customers/customer123" in call_args[1]["url"]
+        assert "customers/cust_123456789" in call_args[1]["url"]
         
-        # Check that data was converted to camelCase
+        # Check that only the updated fields were sent
         sent_data = json.loads(call_args[1]["json"])
-        assert "lastName" in sent_data
-        assert sent_data["lastName"] == "Smith"
+        assert "firstName" in sent_data
+        assert "email" in sent_data
+        assert "lastName" not in sent_data  # Unchanged field not sent
         
-    def test_delete(self, client, mock_response):
+    def test_delete(self, client, successful_response):
         """Test customer deletion."""
         # Setup mock response
-        mock_response.json.return_value = {"deleted": True}
-        client.session.request.return_value = mock_response
+        response = successful_response({"deleted": True})
+        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
         
         # Delete customer
-        response = customer_resource.delete("customer123")
+        result = customer_resource.delete("cust_123456789")
         
         # Verify result
-        assert response == {"deleted": True}
+        assert "deleted" in result
+        assert result["deleted"] is True
         
         # Verify API call
         client.session.request.assert_called_once()
         call_args = client.session.request.call_args
         assert call_args[1]["method"] == "DELETE"
-        assert "customers/customer123" in call_args[1]["url"]
+        assert "customers/cust_123456789" in call_args[1]["url"]
         
-    def test_list(self, client, mock_response):
+    def test_list(self, client, successful_response):
         """Test customer listing."""
         # Setup mock response
-        mock_response.json.return_value = {
+        customers_data = {
             "customers": [
                 {
-                    "id": "customer123",
+                    "id": "cust_123456789",
                     "firstName": "John",
                     "lastName": "Doe",
                     "email": "john.doe@example.com",
                     "status": "ACTIVE"
                 },
                 {
-                    "id": "customer456",
+                    "id": "cust_987654321",
                     "firstName": "Jane",
                     "lastName": "Smith",
                     "email": "jane.smith@example.com",
                     "status": "ACTIVE"
                 }
-            ]
+            ],
+            "pagination": {
+                "totalItems": 2,
+                "limit": 10,
+                "offset": 0
+            }
         }
-        client.session.request.return_value = mock_response
+        response = successful_response(customers_data)
+        client.session.request.return_value = response
         
         # Create customer resource
         customer_resource = Customer(client)
@@ -194,8 +301,8 @@ class TestCustomer:
         assert isinstance(customers, list)
         assert len(customers) == 2
         assert all(isinstance(customer, CustomerModel) for customer in customers)
-        assert customers[0].id == "customer123"
-        assert customers[1].id == "customer456"
+        assert customers[0].id == "cust_123456789"
+        assert customers[1].id == "cust_987654321"
         
         # Verify API call
         client.session.request.assert_called_once()
@@ -204,3 +311,215 @@ class TestCustomer:
         assert "customers" in call_args[1]["url"]
         assert call_args[1]["params"]["limit"] == 10
         assert call_args[1]["params"]["email"] == "example.com"
+        
+    def test_list_with_filters(self, client, successful_response):
+        """Test customer listing with multiple filters."""
+        # Setup mock response
+        customers_data = {
+            "customers": [
+                {
+                    "id": "cust_123456789",
+                    "firstName": "John",
+                    "lastName": "Doe",
+                    "merchantCustomerId": "merch123",
+                    "status": "ACTIVE"
+                }
+            ],
+            "pagination": {
+                "totalItems": 1,
+                "limit": 5,
+                "offset": 0
+            }
+        }
+        response = successful_response(customers_data)
+        client.session.request.return_value = response
+        
+        # Create customer resource
+        customer_resource = Customer(client)
+        
+        # List customers with filters
+        customers = customer_resource.list(
+            limit=5,
+            offset=0,
+            merchant_customer_id="merch123",
+            status="ACTIVE"
+        )
+        
+        # Verify result
+        assert isinstance(customers, list)
+        assert len(customers) == 1
+        
+        # Verify API call
+        client.session.request.assert_called_once()
+        call_args = client.session.request.call_args
+        assert call_args[1]["params"]["limit"] == 5
+        assert call_args[1]["params"]["offset"] == 0
+        assert call_args[1]["params"]["merchantCustomerId"] == "merch123"
+        assert call_args[1]["params"]["status"] == "ACTIVE"
+        
+    def test_utility_methods(self, client):
+        """Test utility methods on the Customer model."""
+        # Test get_full_name method
+        customer = CustomerModel(
+            first_name="John",
+            last_name="Doe"
+        )
+        assert customer.get_full_name() == "John Doe"
+        
+        # Test with only first name
+        customer = CustomerModel(
+            first_name="John"
+        )
+        assert customer.get_full_name() == "John"
+        
+        # Test with only last name
+        customer = CustomerModel(
+            last_name="Doe"
+        )
+        assert customer.get_full_name() == "Doe"
+        
+        # Test with no name
+        customer = CustomerModel()
+        assert customer.get_full_name() == ""
+        
+    def test_error_handling(self, client, error_response):
+        """Test error handling in customer resource."""
+        # Create customer resource
+        customer_resource = Customer(client)
+        
+        # Test authentication error
+        client.session.request.return_value = error_response(401, "Invalid API key", "UNAUTHORIZED")
+        with pytest.raises(AuthenticationError) as exc_info:
+            customer_resource.retrieve("cust_123456789")
+        assert "Authentication error" in str(exc_info.value)
+        
+        # Test invalid request error
+        client.session.request.return_value = error_response(400, "Invalid customer ID", "INVALID_REQUEST")
+        with pytest.raises(InvalidRequestError) as exc_info:
+            customer_resource.retrieve("cust_123456789")
+        assert "Invalid customer ID" in str(exc_info.value)
+        
+        # Test rate limit error
+        client.session.request.return_value = error_response(429, "Rate limit exceeded", "RATE_LIMIT_EXCEEDED")
+        with pytest.raises(RateLimitError) as exc_info:
+            customer_resource.retrieve("cust_123456789")
+        assert "Rate limit exceeded" in str(exc_info.value)
+        
+        # Test API error
+        client.session.request.return_value = error_response(500, "Internal server error", "SERVER_ERROR")
+        with pytest.raises(APIError) as exc_info:
+            customer_resource.retrieve("cust_123456789")
+        assert "Internal server error" in str(exc_info.value)
+
+
+@pytest.mark.integration
+class TestCustomerIntegration:
+    """Integration tests for the Customer resource using real API calls.
+    
+    These tests are skipped by default and only run when the PAYSAFE_TEST_API_KEY
+    environment variable is set and the --integration flag is passed to pytest.
+    """
+    
+    @pytest.fixture
+    def real_client(self):
+        """Create a real client for API calls."""
+        api_key = os.environ.get("PAYSAFE_TEST_API_KEY")
+        if not api_key:
+            pytest.skip("PAYSAFE_TEST_API_KEY environment variable not set")
+        return Client(api_key=api_key, environment="sandbox")
+    
+    @pytest.fixture
+    def test_customer_id(self):
+        """Store a customer ID for tests that need an existing customer."""
+        return os.environ.get("PAYSAFE_TEST_CUSTOMER_ID", "")
+    
+    def test_create_and_retrieve_customer(self, real_client, sample_customer):
+        """Test creating and retrieving a customer with real API calls."""
+        # Skip if no API key
+        if not os.environ.get("PAYSAFE_TEST_API_KEY"):
+            pytest.skip("PAYSAFE_TEST_API_KEY environment variable not set")
+            
+        # Create customer resource
+        customer_resource = Customer(real_client)
+        
+        # Generate a unique email to avoid conflicts
+        unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
+        sample_customer.email = f"test.user+{unique_id}@example.com"
+        
+        try:
+            # Create customer
+            created_customer = customer_resource.create(sample_customer)
+            
+            # Verify customer was created
+            assert created_customer.id is not None
+            assert created_customer.email == sample_customer.email
+            
+            # Retrieve the customer
+            retrieved_customer = customer_resource.retrieve(created_customer.id)
+            
+            # Verify retrieved customer
+            assert retrieved_customer.id == created_customer.id
+            assert retrieved_customer.first_name == sample_customer.first_name
+            assert retrieved_customer.last_name == sample_customer.last_name
+            
+            # Clean up - delete the test customer
+            customer_resource.delete(created_customer.id)
+            
+        except PaysafeError as e:
+            pytest.fail(f"API error: {e}")
+    
+    def test_update_customer(self, real_client, test_customer_id):
+        """Test updating a customer with real API calls."""
+        # Skip if no API key or customer ID
+        if not os.environ.get("PAYSAFE_TEST_API_KEY") or not test_customer_id:
+            pytest.skip("PAYSAFE_TEST_API_KEY or PAYSAFE_TEST_CUSTOMER_ID not set")
+            
+        # Create customer resource
+        customer_resource = Customer(real_client)
+        
+        try:
+            # Retrieve the customer first
+            customer = customer_resource.retrieve(test_customer_id)
+            
+            # Generate new values
+            new_phone = f"555{datetime.now().strftime('%M%S')}"
+            
+            # Update the customer
+            update_data = {
+                "phone": new_phone,
+                "locale": "en_US"
+            }
+            
+            updated_customer = customer_resource.update(test_customer_id, update_data)
+            
+            # Verify update
+            assert updated_customer.id == test_customer_id
+            assert updated_customer.phone == new_phone
+            assert updated_customer.locale == "en_US"
+            
+        except PaysafeError as e:
+            pytest.fail(f"API error: {e}")
+    
+    def test_list_customers(self, real_client):
+        """Test listing customers with real API calls."""
+        # Skip if no API key
+        if not os.environ.get("PAYSAFE_TEST_API_KEY"):
+            pytest.skip("PAYSAFE_TEST_API_KEY environment variable not set")
+            
+        # Create customer resource
+        customer_resource = Customer(real_client)
+        
+        try:
+            # List customers
+            customers = customer_resource.list(limit=5)
+            
+            # Verify response
+            assert isinstance(customers, list)
+            
+            # Verify customer objects
+            if customers:
+                assert all(isinstance(customer, CustomerModel) for customer in customers)
+                assert all(customer.id is not None for customer in customers)
+                
+        except PaysafeError as e:
+            pytest.fail(f"API error: {e}")

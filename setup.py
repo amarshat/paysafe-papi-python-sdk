@@ -30,6 +30,28 @@ setup(
         "requests>=2.22.0",
         "pydantic>=1.8.0"
     ],
+    extras_require={
+        "dev": [
+            "pytest>=6.0.0",
+            "pytest-cov>=2.10.0",
+            "black>=21.5b2",
+            "isort>=5.9.1",
+            "mypy>=0.812",
+            "flake8>=3.9.2",
+            "sphinx>=4.0.2",
+            "sphinx-rtd-theme>=0.5.2",
+            "types-requests>=2.25.0",
+        ],
+        "async": [
+            "aiohttp>=3.8.0",
+        ],
+        "all": [
+            "aiohttp>=3.8.0",
+            "pytest>=6.0.0",
+            "pytest-asyncio>=0.16.0",
+            "pytest-cov>=2.10.0",
+        ],
+    },
     python_requires=">=3.7",
     classifiers=[
         "Development Status :: 4 - Beta",
