@@ -154,7 +154,7 @@ class TestPayment:
         with pytest.raises(ValueError) as exc_info:
             payment_resource.retrieve("")
 
-        assert "payment_id cannot be None or empty" in str(exc_info.value)
+        assert "payment_id cannot be empty" in str(exc_info.value)
 
     def test_list(self, client):
         """Test payment listing."""

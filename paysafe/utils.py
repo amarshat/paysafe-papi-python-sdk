@@ -170,24 +170,25 @@ def transform_keys_to_snake_case(data: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-def validate_id(id_str: Optional[str]) -> None:
+def validate_id(id_str: Optional[str], param_name: str = "id") -> None:
     """
     Validate that the ID is a valid ID format for Paysafe.
 
     Args:
         id_str: The ID to validate.
+        param_name: The name of the parameter being validated (for error messages).
 
     Raises:
         ValueError: If the ID is invalid.
     """
     if id_str is None:
-        raise ValueError("ID cannot be None")
+        raise ValueError(f"{param_name} cannot be None")
         
     if not id_str:
-        raise ValueError("ID cannot be empty")
+        raise ValueError(f"{param_name} cannot be empty")
         
     if not isinstance(id_str, str):
-        raise ValueError(f"ID must be a string, got {type(id_str)}")
+        raise ValueError(f"{param_name} must be a string, got {type(id_str)}")
 
 
 def validate_parameters(params: Dict[str, Any], required: List[str]) -> None:

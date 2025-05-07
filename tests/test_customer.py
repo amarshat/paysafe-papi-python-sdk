@@ -199,7 +199,7 @@ class TestCustomer:
         with pytest.raises(ValueError) as exc_info:
             customer_resource.retrieve("")
         
-        assert "customer_id cannot be None or empty" in str(exc_info.value)
+        assert "customer_id cannot be empty" in str(exc_info.value)
         
     def test_update(self, client, mock_customer_response):
         """Test customer update."""
