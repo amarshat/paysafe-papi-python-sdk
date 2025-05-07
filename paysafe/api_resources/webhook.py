@@ -42,7 +42,7 @@ class Webhook:
             PaysafeError: If the API returns an error.
         """
         if isinstance(webhook, WebhookModel):
-            webhook_data = webhook.dict(exclude_none=True, by_alias=True)
+            webhook_data = webhook.model_dump(exclude_none=True, by_alias=True)
         else:
             webhook_data = webhook
         
@@ -56,7 +56,7 @@ class Webhook:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return WebhookModel.parse_obj(response_data)
+        return WebhookModel.model_validate(response_data)
     
     def retrieve(self, webhook_id: str) -> WebhookModel:
         """
@@ -79,7 +79,7 @@ class Webhook:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return WebhookModel.parse_obj(response_data)
+        return WebhookModel.model_validate(response_data)
     
     def update(
         self, webhook_id: str, webhook: Union[WebhookModel, Dict[str, Any]]
@@ -101,7 +101,7 @@ class Webhook:
         validate_id(webhook_id, "webhook_id")
         
         if isinstance(webhook, WebhookModel):
-            webhook_data = webhook.dict(exclude_none=True, by_alias=True)
+            webhook_data = webhook.model_dump(exclude_none=True, by_alias=True)
         else:
             webhook_data = webhook
         
@@ -113,7 +113,7 @@ class Webhook:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return WebhookModel.parse_obj(response_data)
+        return WebhookModel.model_validate(response_data)
     
     def delete(self, webhook_id: str) -> Dict[str, Any]:
         """
@@ -169,7 +169,7 @@ class Webhook:
         response_data = transform_keys_to_snake_case(response)
         
         webhooks_data = response_data.get("webhooks", [])
-        return [WebhookModel.parse_obj(webhook) for webhook in webhooks_data]
+        return [WebhookModel.model_validate(webhook) for webhook in webhooks_data]
     
     @staticmethod
     def parse_webhook_payload(payload: Dict[str, Any]) -> WebhookPayload:
@@ -188,4 +188,4 @@ class Webhook:
         # Convert camelCase to snake_case for our models
         payload_data = transform_keys_to_snake_case(payload)
         
-        return WebhookPayload.parse_obj(payload_data)
+        return WebhookPayload.model_validate(payload_data)
