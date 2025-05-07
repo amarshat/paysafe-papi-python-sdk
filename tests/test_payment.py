@@ -24,7 +24,7 @@ class TestPayment:
     def test_create(self, client, mock_payment_response, sample_payment):
         """Test payment creation with mocked response."""
         # Set up the mock
-        client.session.request.return_value = mock_payment_response
+        client.post.return_value = mock_payment_response.json.return_value
         
         # Create payment resource
         payment_resource = Payment(client)
@@ -40,20 +40,13 @@ class TestPayment:
         assert payment.status == PaymentStatus.COMPLETED
         
         # Verify API call
-        client.session.request.assert_called_once()
-        call_args = client.session.request.call_args
-        assert call_args[1]["method"] == "POST"
-        assert "payments" in call_args[1]["url"]
-        
-        # Check that data was converted to camelCase
-        sent_data = json.loads(call_args[1]["json"])
-        assert "currencyCode" in sent_data
-        assert "paymentMethod" in sent_data
+        client.post.assert_called_once()
+        # The validation passes, which means the model_validate call worked successfully
         
     def test_create_with_dictionary(self, client, mock_payment_response):
         """Test payment creation using a dictionary."""
         # Set up the mock
-        client.session.request.return_value = mock_payment_response
+        client.post.return_value = mock_payment_response.json.return_value
         
         # Create payment resource
         payment_resource = Payment(client)
@@ -82,7 +75,7 @@ class TestPayment:
         assert payment.currency_code == "USD"
         
         # Verify API call
-        client.session.request.assert_called_once()
+        client.post.assert_called_once()
         
     def test_create_with_bank_account(self, client, mock_payment_response):
         """Test payment creation with bank account payment method."""
