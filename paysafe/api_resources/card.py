@@ -43,7 +43,7 @@ class Card:
         validate_id(customer_id, "customer_id")
         
         if isinstance(card, CardModel):
-            card_data = card.dict(exclude_none=True, by_alias=True)
+            card_data = card.model_dump(exclude_none=True, by_alias=True)
         else:
             card_data = card
         
@@ -55,7 +55,7 @@ class Card:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return CardModel.parse_obj(response_data)
+        return CardModel.model_validate(response_data)
     
     def retrieve(self, customer_id: str, card_id: str) -> CardModel:
         """
@@ -80,7 +80,7 @@ class Card:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return CardModel.parse_obj(response_data)
+        return CardModel.model_validate(response_data)
     
     def update(
         self, customer_id: str, card_id: str, card: Union[CardModel, Dict[str, Any]]
@@ -104,7 +104,7 @@ class Card:
         validate_id(card_id, "card_id")
         
         if isinstance(card, CardModel):
-            card_data = card.dict(exclude_none=True, by_alias=True)
+            card_data = card.model_dump(exclude_none=True, by_alias=True)
         else:
             card_data = card
         
@@ -116,7 +116,7 @@ class Card:
         # Convert camelCase to snake_case for our models
         response_data = transform_keys_to_snake_case(response)
         
-        return CardModel.parse_obj(response_data)
+        return CardModel.model_validate(response_data)
     
     def delete(self, customer_id: str, card_id: str) -> Dict[str, Any]:
         """
@@ -179,4 +179,4 @@ class Card:
         response_data = transform_keys_to_snake_case(response)
         
         cards_data = response_data.get("cards", [])
-        return [CardModel.parse_obj(card) for card in cards_data]
+        return [CardModel.model_validate(card) for card in cards_data]
