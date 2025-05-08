@@ -245,7 +245,7 @@ print(f"Last 4 digits: {card.last_four}")
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/paysafe/paysafe-sdk-python.git
+   git clone <github url> paysafe-sdk-python
    cd paysafe-sdk-python
    ```
 
